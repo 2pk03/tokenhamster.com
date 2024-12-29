@@ -1,23 +1,23 @@
-# Environment Variables
-.env
+.DS_Store
+node_modules
+/dist
+
+
+# local env files
 .env.local
 .env.*.local
 
-# Logs
-logs
-*.log
+# Log files
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+pnpm-debug.log*
 
-# Runtime data
-pids
-*.pid
-*.seed
-*.pid.lock
-
-# Dependency directories
-node_modules/
-
-# Databse files
-*.db
+# Editor directories and files
+.idea
+.vscode
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?

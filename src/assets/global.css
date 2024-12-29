@@ -1,0 +1,138 @@
+/* Base Styles */
+:root {
+    /* Color Palette */
+    --primary-color: #2c3e50; /* Dark Blue */
+    --secondary-color: #3498db; /* Light Blue */
+    --accent-color: #e74c3c; /* Red */
+    --background-color: #f8f9fa; /* Light Gray */
+    --text-color: #333; /* Dark Gray */
+    --border-color: #ddd; /* Light Border */
+
+    /* Font Sizes */
+    --font-size-base: 16px;
+    --font-size-large: 20px;
+    --font-size-small: 14px;
+
+    /* Spacing */
+    --spacing-small: 8px;
+    --spacing-base: 16px;
+    --spacing-large: 24px;
+
+    /* Breakpoints */
+    --breakpoint-sm: 576px;
+    --breakpoint-md: 768px;
+    --breakpoint-lg: 992px;
+    --breakpoint-xl: 1200px;
+}
+
+/* Global Reset */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Roboto', 'Arial', sans-serif;
+    font-size: var(--font-size-base);
+    line-height: 1.5;
+    color: var(--text-color);
+    background-color: var(--background-color);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+/* Container Styles */
+.container {
+    max-width: 80%;
+    margin: 0 auto;
+    padding: var(--spacing-base);
+    background: #fff;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Headings */
+h1, h2, h3, h4, h5, h6 {
+    margin-bottom: var(--spacing-large);
+    font-weight: bold;
+    color: var(--primary-color);
+}
+
+h1 {
+    font-size: calc(var(--font-size-base) * 2);
+}
+
+h2 {
+    font-size: calc(var(--font-size-base) * 1.75);
+}
+
+/* Links */
+a {
+    color: var(--secondary-color);
+    text-decoration: none;
+}
+
+a:hover {
+    color: var(--accent-color);
+    text-decoration: underline;
+}
+
+/* Buttons */
+button {
+    background-color: var(--primary-color);
+    color: #fff;
+    border: none;
+    padding: var(--spacing-small) var(--spacing-base);
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: var(--font-size-base);
+    transition: background-color 0.3s ease;
+}
+
+button:hover {
+    background-color: var(--secondary-color);
+}
+
+/* Form Elements */
+input, select, textarea {
+    width: 100%;
+    padding: var(--spacing-small);
+    margin-bottom: var(--spacing-base);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    font-size: var(--font-size-base);
+}
+
+input:focus, select:focus, textarea:focus {
+    outline: none;
+    border-color: var(--secondary-color);
+}
+
+/* Responsive Layout */
+@media (max-width: var(--breakpoint-md)) {
+    .container {
+        max-width: 90%;
+    }
+
+    body {
+        font-size: var(--font-size-small);
+    }
+
+    h1 {
+        font-size: calc(var(--font-size-base) * 1.5);
+    }
+}
+
+@media (max-width: var(--breakpoint-sm)) {
+    .container {
+        padding: var(--spacing-small);
+        box-shadow: none; /* Simplify on small screens */
+    }
+
+    button {
+        font-size: var(--font-size-small);
+        padding: var(--spacing-small);
+    }
+}
