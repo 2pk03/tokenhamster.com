@@ -33,6 +33,7 @@ function initializeDatabase() {
                 purchase_price REAL,        -- Price at which the token was purchased
                 purchase_currency TEXT,     -- Currency used for the purchase
                 purchase_date DATE,         -- Date the token was purchased
+                amount REAL DEFAULT 0,      -- Amount of crypto purchased
                 FOREIGN KEY (user_id) REFERENCES users(id)
             )
         `);
@@ -45,9 +46,11 @@ function initializeDatabase() {
                 date_time DATETIME NOT NULL,
                 price_usd REAL,
                 volume REAL,
-                market_cap REAL
+                market_cap REAL,
+                UNIQUE (crypto_symbol, date_time)
             )
         `);
+
 
         db.run(`
             CREATE TABLE IF NOT EXISTS current_prices (
@@ -192,18 +195,12 @@ function addUser(username, email, password, callback) {
 }
 
 // Add a crypto to track for a user
-function addCrypto(userId, cryptoSymbol, purchasePrice, purchaseCurrency, purchaseDate, callback) {
+function addCrypto(userId, cryptoSymbol, purchasePrice, purchaseCurrency, purchaseDate, amount, callback) {
     const query = `
-        INSERT INTO user_cryptos (user_id, crypto_symbol, purchase_price, purchase_currency, purchase_date)
-        VALUES (?, ?, ?, ?, ?)
+        INSERT INTO user_cryptos (user_id, crypto_symbol, purchase_price, purchase_currency, purchase_date, amount)
+        VALUES (?, ?, ?, ?, ?, ?)
     `;
-    db.run(query, [userId, cryptoSymbol, purchasePrice, purchaseCurrency, purchaseDate], callback);
-}
-
-// Add a crypto to track for a user
-function addCrypto(userId, cryptoSymbol, callback) {
-    const query = `INSERT INTO user_cryptos (user_id, crypto_symbol) VALUES (?, ?)`;
-    db.run(query, [userId, cryptoSymbol], callback);
+    db.run(query, [userId, cryptoSymbol, purchasePrice, purchaseCurrency, purchaseDate, amount], callback);
 }
 
 // Fetch historical data for a crypto

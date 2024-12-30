@@ -1,51 +1,41 @@
 const express = require('express');
-const axios = require('axios');
-const jwt = require('jsonwebtoken');
 const { db } = require('../../database');
 const router = express.Router();
-const { API_KEY_CRYPTOCOMPARE, CRYPTOCOMPARE_BASE_URL } = require('../../config');
-const { saveOrUpdateCurrentPrice } = require('../../database');
-
 
 // Fetch current price data for a cryptocurrency
-router.get('/current', async (req, res) => {
+router.get('/current', (req, res) => {
     const { cryptoSymbol, currency = 'USD' } = req.query;
 
     if (!cryptoSymbol || !currency) {
         return res.status(400).json({ error: 'cryptoSymbol and currency are required' });
     }
 
-    console.log(`Fetching current price data for: ${cryptoSymbol} in ${currency}`);
+    const query = `
+        SELECT price, last_updated
+        FROM current_prices
+        WHERE crypto_symbol = ? AND currency = ?
+    `;
 
-    try {
-        const response = await axios.get(`${CRYPTOCOMPARE_BASE_URL}/pricemultifull`, {
-            params: {
-                fsyms: cryptoSymbol,
-                tsyms: currency,
-                api_key: API_KEY_CRYPTOCOMPARE
-            }
-        });
+    db.get(query, [cryptoSymbol, currency], (err, row) => {
+        if (err) {
+            console.error('Error fetching price from database:', err.message);
+            return res.status(500).json({ error: 'Failed to fetch price from database' });
+        }
 
-        const price = response.data?.RAW?.[cryptoSymbol]?.[currency]?.PRICE;
-
-        if (price === undefined) {
+        if (!row) {
             return res.status(404).json({ error: `Price data not found for ${cryptoSymbol} in ${currency}` });
         }
 
-        // Save price to the database
-        saveOrUpdateCurrentPrice(cryptoSymbol, currency, price, (err) => {
-            if (err) {
-                console.error(`Failed to save current price for ${cryptoSymbol}:`, err.message);
-            }
+        res.json({
+            symbol: cryptoSymbol,
+            currency,
+            price: row.price,
+            lastUpdated: row.last_updated,
         });
-
-        res.json({ symbol: cryptoSymbol, currency, price });
-    } catch (err) {
-        console.error(`Failed to fetch current price data for ${cryptoSymbol}: ${err.message}`);
-        res.status(500).json({ error: 'Failed to fetch current price data' });
-    }
+    });
 });
 
+// Conversion endpoint (still uses CryptoCompare API if needed)
 router.get('/convert', async (req, res) => {
     const { from, to, amount } = req.query;
 
@@ -58,7 +48,7 @@ router.get('/convert', async (req, res) => {
             params: {
                 fsym: from,
                 tsyms: to,
-                api_key: API_KEY_CRYPTOCOMPARE,
+                api_key: process.env.API_KEY_CRYPTOCOMPARE, // Ensure API key is properly set
             },
         });
 

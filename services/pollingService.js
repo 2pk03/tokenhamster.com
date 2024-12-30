@@ -3,47 +3,116 @@ const { db } = require('../database');
 const { API_KEY_CRYPTOCOMPARE, CRYPTOCOMPARE_BASE_URL } = require('../config');
 
 const pollingIntervals = {};
+const DEFAULT_POLLING_INTERVAL = 5 * 60 * 1000; // Default: 5 minutes
 
 // Fetch crypto price data
-async function fetchCryptoPrice(cryptoSymbol) {
+async function fetchCryptoPrice(cryptoSymbol, currency = 'USD') {
     try {
+        console.log(`Fetching price for ${cryptoSymbol} in ${currency}...`);
         const response = await axios.get(`${CRYPTOCOMPARE_BASE_URL}/pricemultifull`, {
             params: {
                 fsyms: cryptoSymbol,
-                tsyms: 'USD',
+                tsyms: currency,
                 api_key: API_KEY_CRYPTOCOMPARE,
             },
         });
-        const priceData = response.data.RAW[cryptoSymbol]?.USD || null;
+        const priceData = response.data.RAW[cryptoSymbol]?.[currency] || null;
+
         if (priceData) {
+            console.log(`Price data for ${cryptoSymbol} (${currency}):`, priceData);
             return {
                 crypto_symbol: cryptoSymbol,
-                price_usd: priceData.PRICE,
+                currency,
+                price: priceData.PRICE,
                 volume: priceData.VOLUME24HOUR,
                 market_cap: priceData.MKTCAP,
                 timestamp: new Date().toISOString(),
             };
         }
+
+        console.warn(`No price data available for ${cryptoSymbol} (${currency})`);
         return null;
     } catch (err) {
-        console.error(`Error fetching price for ${cryptoSymbol}:`, err.message);
+        console.error(`Error fetching price for ${cryptoSymbol} (${currency}):`, err.message);
         return null;
     }
 }
 
 // Save polled data into the database
-function savePolledData({ crypto_symbol, price_usd, volume, market_cap, timestamp }) {
+function savePolledData({ crypto_symbol, currency, price, timestamp }) {
+    console.log(`Attempting to save data for ${crypto_symbol} (${currency}):`, { price, timestamp });
+
     const query = `
-        INSERT INTO historical_data (crypto_symbol, date_time, price_usd, volume, market_cap)
-        VALUES (?, ?, ?, ?, ?)
+        INSERT INTO current_prices (crypto_symbol, currency, price, last_updated)
+        VALUES (?, ?, ?, datetime('now'))
+        ON CONFLICT (crypto_symbol, currency) DO UPDATE SET
+        price = excluded.price,
+        last_updated = excluded.last_updated
     `;
-    db.run(query, [crypto_symbol, timestamp, price_usd, volume, market_cap], (err) => {
+    db.run(query, [crypto_symbol, currency, price], (err) => {
         if (err) {
-            console.error(`Error saving polled data for ${crypto_symbol}:`, err.message);
+            console.error(`Error saving polled data for ${crypto_symbol} (${currency}):`, err.message);
         } else {
-            console.log(`Polled data saved for ${crypto_symbol}`);
+            console.log(`Saved polled data for ${crypto_symbol} (${currency})`);
         }
     });
+}
+
+// Fetch symbols and currencies from the database
+const getTrackedSymbolsAndCurrencies = () => {
+    return new Promise((resolve, reject) => {
+        db.all(
+            `SELECT DISTINCT crypto_symbol, purchase_currency FROM user_cryptos`,
+            [],
+            (err, rows) => {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve(rows.map(row => ({ crypto_symbol: row.crypto_symbol, currency: row.purchase_currency })));
+                }
+            }
+        );
+    });
+};
+
+// Poll prices for all symbols and currencies
+async function pollPricesForSymbolsAndCurrencies() {
+    try {
+        const trackedPairs = await getTrackedSymbolsAndCurrencies();
+        for (const { crypto_symbol, currency } of trackedPairs) {
+            const data = await fetchCryptoPrice(crypto_symbol, currency);
+            if (data) {
+                savePolledData(data);
+            }
+        }
+    } catch (err) {
+        console.error('Error polling prices:', err.message);
+    }
+}
+
+// Dynamically add a new token to polling
+async function addTokenToPolling(cryptoSymbol, currency) {
+    const pollingKey = `${cryptoSymbol}-${currency}`;
+    if (pollingIntervals[pollingKey]) {
+        console.log(`Polling already active for ${cryptoSymbol} (${currency}).`);
+        return;
+    }
+
+    console.log(`Adding ${cryptoSymbol} (${currency}) to polling.`);
+    fetchAndSaveHistoricalData(cryptoSymbol); // Ensure historical data is fetched.
+
+    pollingIntervals[pollingKey] = setInterval(async () => {
+        console.log(`Polling for ${cryptoSymbol} in ${currency}...`);
+        const data = await fetchCryptoPrice(cryptoSymbol, currency);
+        if (data) {
+            console.log(`Fetched valid data for ${cryptoSymbol} (${currency}):`, data);
+            savePolledData(data);
+        } else {
+            console.warn(`No valid data received for ${cryptoSymbol} (${currency})`);
+        }
+    }, DEFAULT_POLLING_INTERVAL);
+
+    console.log(`Polling interval set for ${cryptoSymbol} (${currency}).`);
 }
 
 // Fetch and save historical data if missing
@@ -78,7 +147,6 @@ async function fetchAndSaveHistoricalData(cryptoSymbol) {
                 });
 
                 const historicalData = response.data.Data.Data;
-                console.log(`Fetched historical data for ${cryptoSymbol}:`, historicalData);
 
                 if (!historicalData || !historicalData.length) {
                     console.error(`No historical data returned for ${cryptoSymbol}`);
@@ -88,8 +156,11 @@ async function fetchAndSaveHistoricalData(cryptoSymbol) {
                 const insertQuery = `
                     INSERT INTO historical_data (crypto_symbol, date_time, price_usd, volume, market_cap)
                     VALUES (?, ?, ?, ?, ?)
+                    ON CONFLICT (crypto_symbol, date_time) DO UPDATE SET
+                    price_usd = excluded.price_usd,
+                    volume = excluded.volume,
+                    market_cap = excluded.market_cap
                 `;
-
                 const stmt = db.prepare(insertQuery);
                 historicalData.forEach((entry) => {
                     const date = new Date(entry.time * 1000).toISOString();
@@ -111,44 +182,40 @@ async function fetchAndSaveHistoricalData(cryptoSymbol) {
     });
 }
 
-// Start polling for all tracked cryptos
+// Start polling for all active cryptos and currencies
 function startPolling() {
     console.log('Starting polling service...');
-    db.all(`SELECT DISTINCT crypto_symbol FROM user_cryptos`, [], (err, rows) => {
+
+    db.all(`SELECT DISTINCT crypto_symbol, purchase_currency FROM user_cryptos`, [], (err, rows) => {
         if (err) {
-            console.error('Error fetching tracked cryptos for polling:', err.message);
+            console.error('Error fetching active cryptos for polling:', err.message);
             return;
         }
 
-        rows.forEach(({ crypto_symbol }) => {
-            // Fetch historical data if necessary
-            fetchAndSaveHistoricalData(crypto_symbol);
+        if (rows.length === 0) {
+            console.warn('No cryptos found to poll.');
+            return;
+        }
 
-            // Start polling for current price
-            if (pollingIntervals[crypto_symbol]) {
-                clearInterval(pollingIntervals[crypto_symbol]);
-            }
+        console.log('Fetched cryptos for polling:', rows);
 
-            pollingIntervals[crypto_symbol] = setInterval(async () => {
-                const data = await fetchCryptoPrice(crypto_symbol);
-                if (data) {
-                    savePolledData(data);
-                }
-            }, 5 * 60 * 1000); // Poll every 5 minutes
+        rows.forEach(({ crypto_symbol, purchase_currency }) => {
+            addTokenToPolling(crypto_symbol, purchase_currency);
         });
     });
 }
 
-// Stop polling for all cryptos
+// Stop polling for all cryptos and currencies
 function stopPolling() {
     console.log('Stopping all polling intervals...');
-    Object.keys(pollingIntervals).forEach((cryptoSymbol) => {
-        clearInterval(pollingIntervals[cryptoSymbol]);
-        delete pollingIntervals[cryptoSymbol];
+    Object.keys(pollingIntervals).forEach((pollingKey) => {
+        clearInterval(pollingIntervals[pollingKey]);
+        delete pollingIntervals[pollingKey];
     });
 }
 
 module.exports = {
     startPolling,
     stopPolling,
+    addTokenToPolling, // Expose to allow dynamic additions
 };

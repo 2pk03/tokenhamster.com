@@ -5,7 +5,6 @@ const SECRET_KEY = process.env.SECRET_KEY || 'your_secret_key';
 
 function authenticateToken(req, res, next) {
     const authHeader = req.headers['authorization'];
-    console.log('Authorization Header:', authHeader);
     const token = authHeader && authHeader.split(' ')[1];
     if (!token) {
         console.error('Access denied: No token provided');
@@ -18,7 +17,6 @@ function authenticateToken(req, res, next) {
             return res.status(403).json({ error: 'Invalid token' });
         }
         req.user = user;
-        console.log(`Token verified for user ID: ${user.id}`);
         next();
     });
 }

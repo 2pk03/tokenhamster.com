@@ -11,7 +11,8 @@ router.get('/fetch', (req, res) => {
             st.full_name AS full_name, 
             uc.purchase_price AS purchasePrice, 
             uc.purchase_currency AS purchaseCurrency, 
-            uc.purchase_date AS purchaseDate
+            uc.purchase_date AS purchaseDate,
+            uc.amount AS amountBought
         FROM user_cryptos uc
         LEFT JOIN supported_tokens st ON uc.crypto_symbol = st.symbol
         WHERE uc.user_id = ?
@@ -22,31 +23,45 @@ router.get('/fetch', (req, res) => {
             console.error('Failed to fetch portfolio:', err.message);
             return res.status(500).json({ error: 'Failed to fetch portfolio' });
         }
-        console.log('Fetched portfolio data:', rows);
         res.json(rows);
     });
 });
 
 // Add a token to portfolio
-router.post('/add', (req, res) => {
-    const userId = req.user.id;
-    const { symbol, purchasePrice, purchaseCurrency, purchaseDate } = req.body;
+const { addTokenToPolling } = require('../../services/pollingService');
 
-    if (!symbol || !purchasePrice || !purchaseCurrency || !purchaseDate) {
+router.post('/add', async (req, res) => {
+    const userId = req.user.id;
+    const { symbol, purchasePrice, purchaseCurrency, purchaseDate, amount } = req.body;
+
+    if (!symbol || !purchasePrice || !purchaseCurrency || !purchaseDate || !amount) {
         return res.status(400).json({ error: 'All fields are required' });
     }
 
     const query = `
-        INSERT INTO user_cryptos (user_id, crypto_symbol, purchase_price, purchase_currency, purchase_date)
-        VALUES (?, ?, ?, ?, ?)
+        INSERT INTO user_cryptos (user_id, crypto_symbol, purchase_price, purchase_currency, purchase_date, amount)
+        VALUES (?, ?, ?, ?, ?, ?)
     `;
 
-    db.run(query, [userId, symbol, purchasePrice, purchaseCurrency, purchaseDate], (err) => {
+    db.run(query, [userId, symbol, purchasePrice, purchaseCurrency, purchaseDate, amount], async (err) => {
         if (err) {
             console.error('Failed to add token:', err.message);
             return res.status(500).json({ error: 'Failed to add token' });
         }
-        res.json({ message: 'Token added successfully.' });
+
+        try {
+            // Add the token to the polling service
+            await addTokenToPolling(symbol, purchaseCurrency);
+
+            // Send a success response after adding the token to polling
+            res.json({ message: 'Token added successfully and polling updated.' });
+        } catch (pollingError) {
+            console.error('Failed to update polling for new token:', pollingError.message);
+            // Return partial success since the token is added, but polling update failed
+            res.status(500).json({
+                message: 'Token added successfully, but failed to update polling. Please try again.',
+            });
+        }
     });
 });
 

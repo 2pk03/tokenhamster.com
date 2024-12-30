@@ -7,6 +7,7 @@
     --background-color: #f8f9fa; /* Light Gray */
     --text-color: #333; /* Dark Gray */
     --border-color: #ddd; /* Light Border */
+    --highlight-border-color: #e67e22; /* Light Orange */
 
     /* Font Sizes */
     --font-size-base: 16px;
@@ -33,22 +34,57 @@
 }
 
 body {
-    font-family: 'Roboto', 'Arial', sans-serif;
+    font-family: 'Lato', 'Roboto', 'Arial', sans-serif;
     font-size: var(--font-size-base);
     line-height: 1.5;
     color: var(--text-color);
     background-color: var(--background-color);
+    margin: 0 auto; /* Ensures horizontal centering */
+    margin-top: 20px;
+    width: 90%; /* Restricts body content width to 90% */
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    box-sizing: border-box; /* Include padding and border in width calculations */
 }
 
 /* Container Styles */
 .container {
-    max-width: 80%;
-    margin: 0 auto;
+    width: 100%; /* Adjust to fit within the body's restricted width */
+    height: 90vh; /* Occupy 90% of the viewport height */
+    margin: auto; /* Ensures centering within the body */
     padding: var(--spacing-base);
     background: #fff;
-    border: 1px solid var(--border-color);
+    border: 1px solid var(--highlight-border-color);
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    display: flex;
+    flex-direction: column; /* Arrange children vertically */
+    justify-content: center; /* Centers children vertically */
+    align-items: center; /* Centers children horizontally */
+}
+
+/* Screen Split */
+.content-container {
+    display: flex;
+    gap: 20px; /* Space between columns */
+    width: 100%; /* Stretch to fit the container */
+    align-items: flex-start; /* Align items at the top */
+}
+
+.graphs-section {
+    flex: 3; /* 60% width */
+    padding: var(--spacing-base);
+    background: #fff;
+    border: 1px solid var(--highlight-border-color);
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.portfolio-section {
+    flex: 2; /* 40% width */
+    padding: var(--spacing-base);
+    background: #fff;
+    border: 1px solid var(--highlight-border-color);
     border-radius: 8px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
@@ -95,6 +131,61 @@ button:hover {
     background-color: var(--secondary-color);
 }
 
+/****************************************************
+ * Frontend Styles
+ ****************************************************/
+
+.add-token {
+    margin-top: 30px; /* Add a margin above the section */
+    padding-top: var(--spacing-base); /* Ensure spacing inside the section */
+}
+
+/* Delete token dialog and buttons */
+.confirmation-dialog {
+    position: fixed;
+    top: 50%; /* Center vertically */
+    left: 50%; /* Center horizontally */
+    transform: translate(-50%, -50%);
+    background: rgba(0, 0, 0, 0.8); /* Dark semi-transparent background */
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+  }
+  
+  .dialog-content {
+    background: #fff;
+    padding: var(--spacing-large);
+    border-radius: 8px;
+    text-align: center;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+    max-width: 400px;
+    width: 90%;
+  }
+  
+  .dialog-content p {
+    font-size: var(--font-size-base);
+    color: var(--text-color);
+    margin-bottom: var(--spacing-large);
+  }
+  
+  .dialog-content .logout-button {
+    background-color: var(--accent-color); /* Red */
+    color: #fff;
+    border: none;
+    padding: var(--spacing-small) var(--spacing-base);
+    border-radius: 4px;
+    font-size: var(--font-size-base);
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+  }
+  
+  .dialog-content .logout-button:hover {
+    background-color: #c0392b; /* Darker red */
+  }
+
 /* Form Elements */
 input, select, textarea {
     width: 100%;
@@ -103,11 +194,79 @@ input, select, textarea {
     border: 1px solid var(--border-color);
     border-radius: 4px;
     font-size: var(--font-size-base);
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
 }
 
 input:focus, select:focus, textarea:focus {
     outline: none;
     border-color: var(--secondary-color);
+    box-shadow: 0 0 5px rgba(52, 152, 219, 0.5); /* Subtle light blue glow */
+}
+
+/* Enhanced Search Input */
+.search-input {
+    border: 2px solid var(--highlight-border-color); /* Orange border */
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.search-input:focus {
+    border-color: var(--secondary-color);
+    box-shadow: 0 0 5px rgba(52, 152, 219, 0.5); /* Blue glow on focus */
+}
+
+/* Table Styles */
+.portfolio-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: var(--spacing-base);
+    font-size: var(--font-size-small); /* Compact size for better readability */
+    background-color: #fff;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.portfolio-table th,
+.portfolio-table td {
+    border: 1px solid var(--border-color);
+    padding: 10px;
+    text-align: left;
+}
+
+.portfolio-table th {
+    background-color: var(--primary-color);
+    color: #fff;
+    font-weight: bold;
+    text-transform: uppercase;
+    font-family: 'Lato', 'Roboto', sans-serif;
+}
+
+.portfolio-table td {
+    font-family: 'Courier New', Courier, monospace; /* Ticker-like font */
+    color: var(--text-color);
+}
+
+.portfolio-table tbody tr:nth-child(odd) {
+    background-color: #f9f9f9;
+}
+
+.portfolio-table tbody tr:nth-child(even) {
+    background-color: #ffffff;
+}
+
+/* Win/Loss */
+.portfolio-table td.win {
+    color: green !important; /* Ensure gains are green */
+    font-weight: bold;
+}
+
+.portfolio-table td.loss {
+    color: red !important; /* Ensure losses are red */
+    font-weight: bold;
+}
+
+.container {
+    overflow: auto; /* Add scrollbars if content exceeds container */
 }
 
 /* Responsive Layout */
@@ -128,7 +287,7 @@ input:focus, select:focus, textarea:focus {
 @media (max-width: var(--breakpoint-sm)) {
     .container {
         padding: var(--spacing-small);
-        box-shadow: none; /* Simplify on small screens */
+        box-shadow: none;
     }
 
     button {
@@ -136,3 +295,337 @@ input:focus, select:focus, textarea:focus {
         padding: var(--spacing-small);
     }
 }
+
+/* Menu Styles */
+.menu {
+    background-color: var(--primary-color); /* Matches table header color */
+    color: white;
+    padding: 10px;
+    border-radius: 8px; /* Matches other elements' border radius */
+    border: 2px solid var(--highlight-border-color); /* Add orange border for consistency */
+    margin-bottom: 30px;
+}
+
+/* Menu List */
+.menu ul {
+    list-style: none;
+    display: flex;
+    justify-content: flex-end; /* Align items to the right */
+    align-items: center;
+    margin: 0;
+    padding: 0;
+}
+
+.menu ul li {
+    display: inline-block;
+}
+
+/* Links */
+a {
+    color: var(--secondary-color); /* Use the light blue color */
+    text-decoration: none; /* Remove the underline */
+    font-weight: 500; /* Slightly bold for better visibility */
+    transition: color 0.3s ease; /* Smooth color transition on hover */
+}
+
+a:hover {
+    color: var(--accent-color); /* Red on hover */
+    text-decoration: none; /* Ensure underline doesn't appear on hover */
+}
+
+/* Base Button Styles */
+button, .menu-button {
+    display: inline-block;
+    padding: 10px 20px;
+    background-color: var(--highlight-border-color); /* Default: Orange background */
+    color: white; /* White font color */
+    border: 2px solid var(--highlight-border-color); /* Orange border */
+    border-radius: 8px; /* Match the border radius of the boxes */
+    text-align: center;
+    cursor: pointer;
+    font-size: 16px;
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Hover Effect for Default Buttons */
+button:hover, .menu-button:hover {
+    background-color: transparent; /* Transparent background */
+    color: var(--highlight-border-color); /* Orange font color */
+}
+
+/* Special Buttons: Remove and Logout */
+.logout-button {
+    background-color: var(--accent-color); /* Default: Red background */
+    color: white; /* White font color */
+    border: 2px solid var(--accent-color); /* Red border */
+    border-radius: 8px;
+    font-size: 16px;
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Remove Button - Row Style */
+button.remove-button {
+    background-color: transparent; /* Transparent background */
+    color: var(--accent-color); /* Transparent font color */
+    border: none;
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+button.remove-button:hover {
+    background-color: var(--accent-color); /* Red background */
+    color: white; /* White font color */
+}
+
+/* Hover Effect for Remove and Logout Buttons */
+.logout-button:hover {
+    background-color: transparent; /* Transparent background */
+    color: var(--accent-color); /* Red font color */
+}
+
+/* Button Container for Layout Consistency */
+button-container {
+    display: inline-block;
+    margin-right: var(--spacing-small);
+}
+
+/* Dialog Button Styles */
+.dialog-content button {
+    display: inline-block;
+    padding: var(--spacing-small) var(--spacing-base);
+    font-size: var(--font-size-base);
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Yes, Remove Button */
+.dialog-content button.yes-remove-button {
+    background-color: var(--accent-color); /* Red background */
+    color: white; /* White font color */
+    border: 2px solid var(--accent-color); /* Red border */
+}
+
+.dialog-content button.yes-remove-button:hover {
+    background-color: transparent; /* Transparent on hover */
+    color: var(--accent-color); /* Red font color */
+}
+
+/* Cancel Button */
+.dialog-content button.cancel-button {
+    background-color: #27ae60; /* Green background */
+    color: white; /* White font color */
+    border: 2px solid #27ae60; /* Green border */
+}
+
+.dialog-content button.cancel-button:hover {
+    background-color: transparent; /* Transparent on hover */
+    color: #27ae60; /* Green font color */
+}
+
+/* Button Spacing */
+.dialog-content button + button {
+    margin-left: 25px; /* Space between buttons */
+}
+
+/* Add positive/negative styles for the total value */
+.positive {
+    color: green;
+    font-weight: bold;
+  }
+  
+  .negative {
+    color: red;
+    font-weight: bold;
+  }
+
+/* Autocomplete Dropdown Styling */
+.autocomplete-dropdown {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    border: 1px solid var(--border-color);
+    max-height: 200px;
+    overflow-y: auto;
+    background-color: #fff; /* Consistent background */
+    position: absolute;
+    z-index: 10; /* Ensure it appears above other elements */
+    width: 90%; /* Set to 90% of the search input's width */
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* Subtle shadow */
+    border-radius: 8px; /* Rounded corners */
+}
+
+/* Token list items */
+.autocomplete-dropdown li {
+    padding: 8px 12px;
+    cursor: pointer;
+    color: var(--text-color); /* Text color matching the design */
+    font-size: var(--font-size-small); /* Keep it compact */
+    transition: background-color 0.3s ease, color 0.3s ease; /* Smooth hover effect */
+}
+
+/* Highlight on hover */
+.autocomplete-dropdown li:hover {
+    background-color: var(--highlight-border-color); /* Light orange for hover */
+    color: white; /* Contrast text on hover */
+}
+
+/* Adjustments for selected tokens */
+.autocomplete-dropdown li.selected {
+    background-color: var(--secondary-color); /* Light blue for selected item */
+    color: white; /* Ensure readability */
+}
+
+/* Modal Styles */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+  
+.modal {
+    position: relative;
+    background: #fff;
+    padding: 20px;
+    border-radius: 8px;
+    max-width: 400px;
+    width: 90%;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+  
+.close-button {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: none;
+    border: none;
+    font-size: 18px;
+    cursor: pointer;
+    color: var(--text-color);
+}
+  
+.close-button:hover {
+    color: var(--accent-color);
+}
+  
+.modal h3 {
+    margin-bottom: var(--spacing-base);
+}
+  
+.cancel-button {
+    background-color: var(--accent-color);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: var(--spacing-small) var(--spacing-base);
+    cursor: pointer;
+    margin-left: var(--spacing-small);
+}
+  
+.cancel-button:hover {
+    background-color: #c0392b;
+}
+
+.add-token-button {
+    display: inline-block;
+    padding: 10px 20px; /* Match size of other buttons */
+    background-color: transparent; /* Transparent background */
+    color: #27ae60; /* Modern light green font color */
+    border: 2px solid #27ae60; /* Green border */
+    border-radius: 8px; /* Match border radius of other buttons */
+    text-align: center;
+    cursor: pointer;
+    font-size: 16px; /* Match font size of other buttons */
+    margin-right: 50px; /* Match spacing like other menu items */
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Hover Effect */
+.add-token-button:hover {
+    background-color: #27ae60; /* Light green background */
+    color: white; /* White text for contrast */
+}
+
+.add-token-submit {
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: var(--spacing-small) var(--spacing-base);
+    cursor: pointer;
+}
+  
+.add-token-submit:hover {
+    background-color: var(--secondary-color);
+}
+
+/* Portfolio Button */
+.portfolio-button-container .menu-button {
+    display: inline-block;
+    padding: 10px 20px; /* Match size of other buttons */
+    background-color: transparent; /* Transparent background */
+    color: var(--highlight-border-color); /* Orange font color */
+    border: 2px solid var(--highlight-border-color); /* Orange border */
+    border-radius: 8px; /* Match border radius of other buttons */
+    text-align: center;
+    cursor: pointer;
+    font-size: 16px; /* Match font size of other buttons */
+    margin-right: 50px; /* Maintain consistent spacing to Logout */
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Hover Effect for Portfolio Button */
+.portfolio-button-container .menu-button:hover {
+    background-color: var(--highlight-border-color); /* Orange background */
+    color: white; /* White font color for contrast */
+}
+
+/* Logout Button */
+.logout-button-container .logout-button {
+    display: inline-block;
+    padding: 10px 20px; /* Match size of other buttons */
+    background-color: transparent; /* Transparent background */
+    color: var(--accent-color); /* Red font color */
+    border: 2px solid var(--accent-color); /* Red border */
+    border-radius: 8px; /* Match border radius of other buttons */
+    text-align: center;
+    cursor: pointer;
+    font-size: 16px; /* Match font size of other buttons */
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Hover Effect for Logout Button */
+.logout-button-container .logout-button:hover {
+    background-color: var(--accent-color); /* Red background */
+    color: white; /* White font color for contrast */
+}
+
+/* Adjust Add Token Button Margin */
+.add-token-container .add-token-button {
+    display: inline-block;
+    padding: 10px 20px; /* Match size of other buttons */
+    background-color: transparent; /* Transparent background */
+    color: #27ae60; /* Modern light green font color */
+    border: 2px solid #27ae60; /* Green border */
+    border-radius: 8px; /* Match border radius of other buttons */
+    text-align: center;
+    cursor: pointer;
+    font-size: 16px; /* Match font size of other buttons */
+    margin-right: 20px; /* Reduced spacing to bring it closer to Portfolio */
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Hover Effect for Add Token Button */
+.add-token-container .add-token-button:hover {
+    background-color: #27ae60; /* Light green background */
+    color: white; /* White text for contrast */
+}
+
+
