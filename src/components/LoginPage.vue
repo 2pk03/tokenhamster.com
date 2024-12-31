@@ -30,26 +30,47 @@ export default {
   },
   methods: {
     async login() {
-    try {
-      localStorage.removeItem('token'); // Clear stale token before login
-      console.log("Attempting login with username:", this.username);
-      const response = await api.post('/auth/login', {
-        username: this.username,
-        password: this.password,
-      });
-      console.log("Login successful:", response.data);
+      try {
+        // Clear any previous token
+        localStorage.removeItem('token');
+        console.log("Attempting login with username:", this.username);
 
-      const token = response.data.token;
+        // Make API call for login
+        const response = await api.post('/user/auth/login', {
+          username: this.username,
+          password: this.password,
+        });
 
-      // Save token in localStorage
-      localStorage.setItem('token', token);
-      console.log("Token saved to localStorage");
+        const token = response.data.token;
 
-      // Redirect to portfolio page
-      this.$router.push('/portfolio');
-    } catch (err) {
-      console.error("Login failed:", err.response ? err.response.data : err);
-      this.error = 'Invalid username or password';
+        // Save token in localStorage
+        localStorage.setItem('token', token);
+        console.log("Token saved to localStorage");
+
+        // Clear any previous error messages
+        this.error = null;
+
+        // Manually trigger isAuthenticated update (if needed)
+        this.$store.dispatch('auth/setAuthenticated', true);
+
+        // Redirect to portfolio page
+        console.log("Redirecting to /portfolio");
+        this.$router.push('/portfolio').catch((err) => {
+          if (err.name !== 'NavigationDuplicated') {
+            console.error("Navigation error:", err);
+          }
+        });
+      } catch (err) {
+        // Handle different error scenarios
+        console.error("Login failed:", err.response ? err.response.data : err);
+
+        if (err.response && err.response.status === 401) {
+          this.error = 'Invalid username or password';
+        } else if (err.response && err.response.status === 500) {
+          this.error = 'Server error. Please try again later.';
+        } else {
+          this.error = 'An unexpected error occurred. Please try again.';
+        }
       }
     },
   },
@@ -66,20 +87,24 @@ export default {
   border-radius: 5px;
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
 }
+
 .form-group {
   margin-bottom: 15px;
 }
+
 label {
   display: block;
   margin-bottom: 5px;
   font-weight: bold;
 }
+
 input {
   width: 100%;
   padding: 8px;
   border: 1px solid #ccc;
   border-radius: 4px;
 }
+
 button {
   width: 100%;
   padding: 10px;
@@ -89,9 +114,11 @@ button {
   border-radius: 4px;
   cursor: pointer;
 }
+
 button:hover {
   background-color: #0056b3;
 }
+
 .error {
   color: red;
   margin-top: 10px;

@@ -1,5 +1,5 @@
 const express = require('express');
-const { startPollingForUser, stopPollingForUser } = require('../../services/pollingService'); // Adjust path
+const { startPollingForUser, stopPollingForUser } = require('../../../services/pollingService'); // Adjust path
 const router = express.Router();
 
 // Start polling for a user

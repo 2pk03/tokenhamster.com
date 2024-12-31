@@ -98,7 +98,7 @@ export default {
     },
   },
   methods: {
-    // Add these methods for polling
+    // polling
     startPolling() {
       if (this.pollingInterval) {
         clearInterval(this.pollingInterval); // Clear any existing interval
@@ -117,7 +117,7 @@ export default {
     // Fetch portfolio data
     async fetchPortfolioData() {
       try {
-        const response = await api.get("/portfolio/fetch");
+        const response = await api.get("/user/portfolio/fetch");
         this.portfolio = response.data.map((token) => ({
           ...token,
           currentPrice: null,
@@ -147,7 +147,7 @@ export default {
     async fetchHistoricalData() {
       for (const token of this.portfolio) {
         try {
-          const response = await api.get("/historical/fetch", {
+          const response = await api.get("/functional/historical/fetch", {
             params: { symbol: token.symbol },
           });
           this.historicalData = response.data;
@@ -169,7 +169,7 @@ export default {
     async fetchDailyPrices() {
       for (const token of this.portfolio) {
         try {
-          const response = await api.get("/price/daily", {
+          const response = await api.get("/functional/price/daily", {
             params: { symbol: token.symbol },
           });
           this.pollingData = response.data;
@@ -188,7 +188,7 @@ export default {
     async updateCurrentPrices() {
       for (const token of this.portfolio) {
         try {
-          const response = await api.get("/price/current", {
+          const response = await api.get("/functional/price/current", {
             params: { cryptoSymbol: token.symbol, currency: token.purchaseCurrency },
           });
 
@@ -288,7 +288,7 @@ export default {
           if (token.purchaseCurrency === this.currency) {
             token.purchasePriceConverted = token.purchasePrice;
           } else {
-            const purchaseConversionResponse = await api.get("/price/convert", {
+            const purchaseConversionResponse = await api.get("/functional/price/convert", {
               params: {
                 from: token.purchaseCurrency,
                 to: this.currency,
@@ -356,7 +356,7 @@ export default {
     // Remove a token
     async removeToken(symbol) {
       try {
-        await api.post("/portfolio/remove", { symbol });
+        await api.post("/user/portfolio/remove", { symbol });
         this.portfolio = this.portfolio.filter((token) => token.symbol !== symbol); // Remove token locally
         console.log("Token removed:", symbol);
 
@@ -369,7 +369,6 @@ export default {
         this.closeDialog(); // Ensure the dialog closes
       }
     },
-
 
     // Confirm token removal
     confirmRemove(token) {

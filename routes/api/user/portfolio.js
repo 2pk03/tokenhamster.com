@@ -1,5 +1,6 @@
 const express = require('express');
-const { db } = require('../../database');
+const { db } = require('../../../database');
+const { addTokenToPolling } = require('../../../services/pollingService');
 const router = express.Router();
 
 // Fetch user portfolio
@@ -28,8 +29,6 @@ router.get('/fetch', (req, res) => {
 });
 
 // Add a token to portfolio
-const { addTokenToPolling } = require('../../services/pollingService');
-
 router.post('/add', async (req, res) => {
     const userId = req.user.id;
     const { symbol, purchasePrice, purchaseCurrency, purchaseDate, amount } = req.body;

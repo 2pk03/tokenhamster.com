@@ -1,17 +1,30 @@
 <template>
   <div id="app">
     <!-- Global Menu -->
-    <nav class="menu">
+    <nav class="menu" v-if="$route.path !== '/login'">
       <div class="menu-overview"></div>
       <ul>
         <li class="portfolio-button-container">
           <button class="menu-button add-token-button" @click="openAddTokenModal">+ Add Token</button>
         </li>
         <li class="portfolio-button-container">
-          <router-link to="/portfolio" class="menu-button">Portfolio</router-link>
+          <router-link to="/portfolio"><button class="menu-button add-token-button">Portfolio</button></router-link>
         </li>
-        <li class="logout-button-container">
-          <button class="logout-button" @click="logout">Logout</button>
+        <li class="menu-dropdown profile-container-menu">
+          <img ref="profilePicture" :src="profilePicture" alt="User Profile" class="profile-picture-menu"
+            @click="toggleDropdown" />
+          <ul class="dropdown-content" ref="dropdown" v-show="isDropdownOpen">
+            <li>
+              <router-link to="/profile" class="menu-item">
+                <span class="menu-icon">&gt;</span> Profile
+              </router-link>
+            </li>
+            <li>
+              <span @click="logout" class="menu-item">
+                <span class="menu-icon">&gt;</span> Logout
+              </span>
+            </li>
+          </ul>
         </li>
       </ul>
     </nav>
@@ -24,18 +37,9 @@
       <div class="modal">
         <button class="close-button" @click="closeAddTokenModal">✖</button>
         <h3>Add a Token</h3>
-        <input
-          v-model="searchQuery"
-          placeholder="Search for a token..."
-          @input="searchTokens"
-          class="search-input"
-        />
+        <input v-model="searchQuery" placeholder="Search for a token..." @input="searchTokens" class="search-input" />
         <ul class="autocomplete-dropdown" v-if="searchResults.length">
-          <li
-            v-for="result in searchResults"
-            :key="result.symbol"
-            @click="selectToken(result)"
-          >
+          <li v-for="result in searchResults" :key="result.symbol" @click="selectToken(result)">
             {{ result.full_name }}
           </li>
         </ul>
@@ -85,6 +89,8 @@ export default {
       purchasePrice: null,
       amountBought: null,
       purchaseCurrency: "USD",
+      isDropdownOpen: false,
+      profilePicture: "/logo.webp" // Default profile picture
     };
   },
   methods: {
@@ -93,15 +99,19 @@ export default {
       localStorage.removeItem("token");
       this.$router.push("/login");
     },
-    redirectToLogin() {
-      this.showTimeoutDialog = false;
-      this.logout();
+    toggleDropdown(event) {
+      event.stopPropagation();
+      this.isDropdownOpen = !this.isDropdownOpen; // Toggle dropdown state
     },
-    handleSessionTimeout() {
-      this.showTimeoutDialog = true;
+    closeDropdown(event) {
+      const dropdown = this.$refs.dropdown;
+      const profilePicture = this.$refs.profilePicture;
+      if (dropdown && profilePicture && !dropdown.contains(event.target) && !profilePicture.contains(event.target)) {
+        this.isDropdownOpen = false; // Close dropdown only if click is outside
+      }
     },
     openAddTokenModal() {
-      this.showAddTokenModal = true;
+      this.showAddTokenModal = true; // Ensure modal opens
     },
     closeAddTokenModal() {
       this.showAddTokenModal = false;
@@ -123,7 +133,7 @@ export default {
         return;
       }
       try {
-        const response = await api.get("/currency/supported", {
+        const response = await api.get("/functional/currency/supported", {
           params: { query: this.searchQuery },
         });
         this.searchResults = response.data;
@@ -142,7 +152,7 @@ export default {
         return;
       }
       try {
-        const response = await api.post("/portfolio/add", {
+        const response = await api.post("/user/portfolio/add", {
           symbol: this.selectedToken.symbol,
           purchasePrice: parseFloat(this.purchasePrice),
           amount: parseFloat(this.amountBought),
@@ -166,12 +176,25 @@ export default {
         alert("Failed to add token. Please try again.");
       }
     },
+    async loadUserProfile() {
+      try {
+        const response = await api.get('/user/profile');
+        this.profilePicture = response.data.profilePicture || '/logo.webp';
+      } catch (error) {
+        console.error('Error loading profile picture:', error);
+        this.profilePicture = '/logo.webp'; // Default fallback
+      }
+    },
+    goToProfile() {
+      this.$router.push("/profile");
+    },
   },
-  created() {
-    window.addEventListener("sessionTimeout", this.handleSessionTimeout);
+  mounted() {
+    this.loadUserProfile();
+    document.addEventListener("click", this.closeDropdown); // Add click listener for closing dropdown
   },
   beforeUnmount() {
-    window.removeEventListener("sessionTimeout", this.handleSessionTimeout);
+    document.removeEventListener("click", this.closeDropdown); // Remove listener on component unmount
   },
 };
 </script>

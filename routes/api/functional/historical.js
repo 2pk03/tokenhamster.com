@@ -1,8 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const axios = require('axios');
-const { db } = require('../../database');
-const { API_KEY_CRYPTOCOMPARE, CRYPTOCOMPARE_BASE_URL } = require('../../config');
+const { db } = require('../../../database');
+const { API_KEY_CRYPTOCOMPARE, CRYPTOCOMPARE_BASE_URL } = require('../../../config');
 
 router.get('/fetch', async (req, res) => {
     const { symbol } = req.query;

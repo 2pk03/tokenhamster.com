@@ -61,8 +61,8 @@ function initializeDatabase() {
                 last_updated DATETIME NOT NULL,
                 UNIQUE(crypto_symbol, currency) -- Ensures one record per symbol and currency
             )
-        `);        
-        
+        `);
+
         // Add index to improve query performance on historical_data table
         db.run(`CREATE INDEX IF NOT EXISTS idx_historical_data ON historical_data (crypto_symbol, date_time);`);
 
@@ -115,6 +115,31 @@ function initializeDatabase() {
             )
         `);
 
+        // SQLLite related code
+        // Check if 'profilePicture' column exists in 'users' table
+        db.all(
+            `PRAGMA table_info(users);`,
+            (err, rows) => {
+                if (err) {
+                    console.error('Error checking users table schema:', err.message);
+                } else if (!rows.some(col => col.name === 'profilePicture')) {
+                    console.log('Adding profilePicture column to users table...');
+                    db.run(
+                        `ALTER TABLE users ADD COLUMN profilePicture TEXT DEFAULT NULL`,
+                        (alterErr) => {
+                            if (alterErr) {
+                                console.error('Error adding profilePicture column:', alterErr.message);
+                            } else {
+                                console.log('profilePicture column added successfully.');
+                            }
+                        }
+                    );
+                } else {
+                    console.log('profilePicture column already exists in users table.');
+                }
+            }
+        );
+
         // Add admin user
         const adminUsername = 'admin';
         const adminEmail = 'admin@example.com';
@@ -129,7 +154,7 @@ function initializeDatabase() {
                 } else if (!row) {
                     console.log('Admin user not found. Creating now...');
                     const hashedPassword = await bcrypt.hash(adminPassword, 10);
-        
+
                     db.run(
                         `INSERT INTO users (username, email, password) VALUES (?, ?, ?)`,
                         [adminUsername, adminEmail, hashedPassword],
@@ -138,14 +163,14 @@ function initializeDatabase() {
                                 console.error('Failed to insert admin user:', insertErr.message);
                             } else {
                                 console.log('Admin user created successfully.');
-        
+
                                 // Automatically add BTC to the admin's portfolio
                                 const adminUserId = this.lastID; // Get the ID of the new admin
                                 const addCryptoQuery = `
                                     INSERT INTO user_cryptos (user_id, crypto_symbol, purchase_price, purchase_currency, purchase_date)
                                     VALUES (?, ?, ?, ?, ?)
                                 `;
-        
+
                                 db.run(addCryptoQuery, [adminUserId, 'BTC', 0, 'USD', '2023-01-01'], (cryptoErr) => {
                                     if (cryptoErr) {
                                         console.error(

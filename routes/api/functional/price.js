@@ -1,5 +1,5 @@
 const express = require('express');
-const { db } = require('../../database');
+const { db } = require('../../../database');
 const router = express.Router();
 
 // Fetch current price data for a cryptocurrency

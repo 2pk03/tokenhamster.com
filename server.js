@@ -42,6 +42,17 @@ if (!API_KEY_CRYPTOCOMPARE) {
 app.use(bodyParser.json());
 app.use(cors());
 
+// Centralized error handling middleware
+app.use((err, req, res, next) => {
+    console.error(`Error occurred: ${err.message}`);
+
+    // Return a standardized error response
+    res.status(err.status || 500).json({
+        error: err.message || 'Internal server error',
+        details: process.env.NODE_ENV === 'development' ? err.stack : undefined,
+    });
+});
+
 // Rate Limiter
 // const cryptoLimiter = rateLimit({
 //     windowMs: 60 * 1000, // 1 minute window
@@ -64,7 +75,7 @@ app.use('/api', routes);
 // Start Polling on Server Start
 app.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`);
-    
+
     // Start polling service
     startPolling();
 
