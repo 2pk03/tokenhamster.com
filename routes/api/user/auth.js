@@ -5,9 +5,11 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const db = require('../../../database');
 const authenticateToken = require('../../../middleware/authenticateToken');
+const { trackActiveUsers, getActiveUsers } = require('../../../middleware/countUsers');
 
 const router = express.Router();
 const SECRET_KEY = process.env.SECRET_KEY || 'your_secret_key';
+router.use(trackActiveUsers);
 
 // Register
 router.post('/register', async (req, res) => {
@@ -84,6 +86,17 @@ router.post('/refresh-token', authenticateToken, (req, res) => {
   console.log('Token refreshed for user ID:', id);
 
   res.json({ token: newToken });
+});
+
+// Get Active Users Endpoint
+router.get('/active-users', authenticateToken, (req, res) => {
+  try {
+    const activeUsers = getActiveUsers();
+    res.json({ count: activeUsers.size });
+  } catch (error) {
+    console.error('Error fetching active users:', error.message);
+    res.status(500).json({ error: 'Internal server error' });
+  }
 });
 
 module.exports = router;

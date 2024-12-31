@@ -316,8 +316,10 @@ textarea:focus {
 
 /* Menu Styles */
 .menu {
-    background-color: var(--primary-color);
-    color: white;
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center; 
+    background-color: var(--primary-color); 
     padding: 10px;
     border-radius: 8px;
     border: 2px solid var(--highlight-border-color);
@@ -786,6 +788,14 @@ button-container {
     border-radius: 50%;
     margin-bottom: 10px;
 }
+
+.menu-stats {
+    margin-left: 0; 
+    font-size: var(--font-size-small);
+    color: white;
+    text-align: left; 
+    flex: 1; 
+  }
 
 /* Section Margins */
 .profile-details,

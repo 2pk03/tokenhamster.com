@@ -2,8 +2,12 @@
   <div id="app">
     <!-- Global Menu -->
     <nav class="menu" v-if="$route.path !== '/login'">
+      <div class="menu-stats">
+    <strong>Statistics:</strong>
+    <span>Active Users: {{ activeUsers }}</span> | <span>Data Polled: {{ lastPoll }}</span>
+  </div>
       <div class="menu-overview"></div>
-      <ul>
+      <ul>        
         <li class="portfolio-button-container">
           <button class="menu-button add-token-button" @click="openAddTokenModal">+ Add Token</button>
         </li>
@@ -90,7 +94,9 @@ export default {
       amountBought: null,
       purchaseCurrency: "USD",
       isDropdownOpen: false,
-      profilePicture: "/logo.webp" // Default profile picture
+      profilePicture: "/logo.webp",
+      activeUsers: 0,
+      lastPoll: "N/A",
     };
   },
   methods: {
@@ -108,6 +114,35 @@ export default {
       const profilePicture = this.$refs.profilePicture;
       if (dropdown && profilePicture && !dropdown.contains(event.target) && !profilePicture.contains(event.target)) {
         this.isDropdownOpen = false; // Close dropdown only if click is outside
+      }
+    },
+    async fetchActiveUsers() {
+      try {
+        const response = await api.get("/api/statistics/active-users");
+        this.activeUsers = response.data.count;
+      } catch (error) {
+        console.error("Error fetching active users:", error);
+      }
+    },
+    async fetchLastPoll() {
+      try {
+        const response = await api.get("/functional/price/current", {
+          params: {
+            cryptoSymbol: "BTC", // You can customize this for other tokens
+            currency: "USD",
+          },
+        });
+
+        const lastUpdated = response.data.lastUpdated;
+
+        // Format the timestamp
+        this.lastPoll = new Intl.DateTimeFormat(navigator.language, {
+          dateStyle: "short",
+          timeStyle: "short",
+        }).format(new Date(`${lastUpdated}Z`)); // Append 'Z' to treat it as UTC
+      } catch (error) {
+        console.error("Error fetching last poll timestamp:", error);
+        this.lastPoll = "N/A";
       }
     },
     openAddTokenModal() {
@@ -191,6 +226,14 @@ export default {
   },
   mounted() {
     this.loadUserProfile();
+    this.fetchActiveUsers();
+    this.fetchLastPoll();
+
+    // Refresh active users every minute
+    setInterval(() => {
+      this.fetchActiveUsers();
+    }, 60000);
+
     document.addEventListener("click", this.closeDropdown); // Add click listener for closing dropdown
   },
   beforeUnmount() {

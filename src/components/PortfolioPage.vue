@@ -28,7 +28,6 @@
               <th>Amount Bought</th>
               <th>Price Bought</th>
               <th>Current Price</th>
-              <th>Last Polled</th>
               <th>Win/Loss</th>
               <th>Actions</th>
             </tr>
@@ -40,7 +39,6 @@
               <td>{{ token.amountBought }}</td>
               <td>{{ formatFullPrice(token.purchasePrice) }} ({{ token.purchaseCurrency }})</td>
               <td>{{ formatFullPrice(token.currentPriceConverted || token.currentPrice) }}</td>
-              <td>{{ formatLastPolled(token.lastPolled) || "--" }}</td>
               <td :class="token.winLoss >= 0 ? 'win' : 'loss'">
                 {{ formatPrice(token.winLoss) }}
               </td>
@@ -124,7 +122,6 @@ export default {
           currentPriceConverted: null,
           purchasePriceConverted: null,
           winLoss: null,
-          lastPolled: token.lastPolled || "--",
         }));
         console.log("Initial Portfolio:", this.portfolio);
         await this.updateCurrentPrices();
@@ -195,9 +192,6 @@ export default {
           // Update current price
           token.currentPrice = response.data.price;
 
-          // Use the actual lastUpdated value from the API response
-          token.lastPolled = response.data.lastUpdated;
-
           const totalPurchaseValue = token.purchasePrice * token.amountBought;
           const currentTotalValue = token.currentPrice * token.amountBought;
 
@@ -207,8 +201,7 @@ export default {
           console.log(`Updated data for ${token.symbol}:`, {
             totalPurchaseValue,
             currentTotalValue,
-            winLoss: token.winLoss,
-            lastPolled: token.lastPolled,
+            winLoss: token.winLoss,            
           });
         } catch (err) {
           console.error(`Failed to fetch current price for ${token.symbol}:`, err);
