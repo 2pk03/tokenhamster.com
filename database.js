@@ -14,13 +14,16 @@ const db = new sqlite3.Database('./tracker.db', (err) => {
 // Initialize tables with optimizations
 function initializeDatabase() {
     db.serialize(() => {
-        // Users table
+        // Users table: Updated for OAuth support
         db.run(`
             CREATE TABLE IF NOT EXISTS users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 username TEXT NOT NULL,
                 email TEXT UNIQUE NOT NULL,
-                password TEXT NOT NULL
+                password TEXT DEFAULT NULL,
+                oauthProvider TEXT DEFAULT NULL,
+                oauthId TEXT UNIQUE DEFAULT NULL,
+                profilePicture TEXT DEFAULT NULL
             )
         `);
 
@@ -50,7 +53,6 @@ function initializeDatabase() {
                 UNIQUE (crypto_symbol, date_time)
             )
         `);
-
 
         db.run(`
             CREATE TABLE IF NOT EXISTS current_prices (
@@ -105,7 +107,7 @@ function initializeDatabase() {
             )
         `);
 
-        // store supported tokens we query from the API
+        // Store supported tokens we query from the API
         db.run(`
             CREATE TABLE IF NOT EXISTS supported_tokens (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -278,6 +280,47 @@ function getUserByUsername(username, callback) {
     db.get(query, [username], callback);
 }
 
+// Fetch a user by their Google ID (oauthId)
+function getUserByGoogleId(googleId) {
+    return new Promise((resolve, reject) => {
+        db.get(
+            `SELECT * FROM users WHERE oauthId = ?`,
+            [googleId],
+            (err, row) => {
+                if (err) {
+                    console.error('Error fetching user by Google ID:', err.message);
+                    reject(err);
+                } else {
+                    resolve(row);
+                }
+            }
+        );
+    });
+}
+
+// Create a new user in the database
+function createUser({ email, googleId, username, profilePicture }) {
+    return new Promise((resolve, reject) => {
+        db.run(
+            `INSERT INTO users (email, oauthId, username, profilePicture) VALUES (?, ?, ?, ?)`,
+            [email, googleId, username, profilePicture],
+            function (err) {
+                if (err) {
+                    console.error('Error creating user:', err.message);
+                    reject(err);
+                } else {
+                    resolve({
+                        id: this.lastID,
+                        email,
+                        username,
+                        profilePicture,
+                    });
+                }
+            }
+        );
+    });
+}
+
 // Update supported tokens from the API
 async function updateSupportedTokens() {
     const apiKey = process.env.API_KEY_CRYPTOCOMPARE;
@@ -359,6 +402,8 @@ module.exports = {
     saveAggregatedData,
     getAggregatedData,
     getUserByUsername,
+    getUserByGoogleId,
+    createUser,
     updateSupportedTokens,
     saveSupportedTokens,
     saveOrUpdateCurrentPrice

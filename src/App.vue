@@ -118,7 +118,7 @@ export default {
     },
     async fetchActiveUsers() {
       try {
-        const response = await api.get("/api/statistics/active-users");
+        const response = await api.get("/statistics/active-users");
         this.activeUsers = response.data.count;
       } catch (error) {
         console.error("Error fetching active users:", error);

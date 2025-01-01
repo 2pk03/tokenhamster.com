@@ -6,6 +6,18 @@ import router from './router';
 import './assets/global.css';
 import store from './store';
 import { jwtDecode } from 'jwt-decode';
+import { GoogleLogin } from 'vue3-google-login';
+
+const GOOGLE_CLIENT_ID = process.env.VUE_APP_GOOGLE_CLIENT_ID;
+
+if (!GOOGLE_CLIENT_ID) {
+    console.error('Google Client ID is missing! Please set GOOGLE_CLIENT_ID in your .env file.');
+}
+
+const app = createApp(App);
+
+// Properly initialize Google Login Plugin
+app.component('GoogleLogin', GoogleLogin);
 
 // Refresh token interval
 let refreshInterval = null;
@@ -60,4 +72,4 @@ store.watch(
     }
 );
 
-createApp(App).use(router).use(store).mount('#app');
+app.use(router).use(store).mount('#app');

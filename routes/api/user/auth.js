@@ -1,17 +1,91 @@
 // routes/api/user/auth.js
 
+require('dotenv').config();
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const db = require('../../../database');
 const authenticateToken = require('../../../middleware/authenticateToken');
 const { trackActiveUsers, getActiveUsers } = require('../../../middleware/countUsers');
+// const { passport, loadStrategies } = require('../../../middleware/oauthprovider');
+const { OAuth2Client } = require('google-auth-library');
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
+const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID);
 
 const router = express.Router();
 const SECRET_KEY = process.env.SECRET_KEY || 'your_secret_key';
+
+// Apply `trackActiveUsers` middleware globally
 router.use(trackActiveUsers);
 
-// Register
+// utility functions
+const authState = {
+  token: null,
+  isAuthenticated: false,
+};
+
+function updateAuthState(token) {
+  authState.token = token;
+  authState.isAuthenticated = !!token;
+}
+
+function clearAuthState() {
+  authState.token = null;
+  authState.isAuthenticated = false;
+}
+
+// Oauth Providers, dynamically load OAuth strategies
+// loadStrategies();
+
+// Google Login Route
+// router.get('/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
+
+// Google Callback Route
+// router.get(
+//   '/google/callback',
+//   passport.authenticate('google', { failureRedirect: '/login' }),
+//   (req, res) => {
+//     const token = jwt.sign({ id: req.user.id, email: req.user.email }, SECRET_KEY, { expiresIn: '1h' });
+//     res.redirect(`/login?token=${token}`); // Redirect back to frontend with token
+//   }
+// );
+
+// Public Routes
+
+router.post('/google/validate', async (req, res) => {
+  const { idToken } = req.body;
+
+  try {
+    const ticket = await googleClient.verifyIdToken({
+      idToken,
+      audience: 'YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com',
+    });
+
+    const payload = ticket.getPayload();
+    const { sub: googleId, email, name, picture } = payload;
+
+    // Check if user exists, create if not
+    let user = await db.getUserByGoogleId(googleId);
+    let isNewUser = false;
+
+    if (!user) {
+      isNewUser = true; // User is being created
+      user = await db.createUser({ email, googleId, name, picture });
+    }
+
+    // Generate a JWT
+    const token = jwt.sign({ id: user.id, email: user.email }, SECRET_KEY, {
+      expiresIn: '1h',
+    });
+
+    updateAuthState(token);
+    res.json({ token, isNewUser });
+  } catch (error) {
+    console.error('Error validating Google ID token:', error);
+    res.status(401).json({ error: 'Invalid Google ID token' });
+  }
+});
+
 router.post('/register', async (req, res) => {
   const { username, email, password } = req.body;
   console.log(`Attempting to register user: ${username}, email: ${email}`);
@@ -31,13 +105,11 @@ router.post('/register', async (req, res) => {
   }
 });
 
-// Login endpoint
 router.post('/login', async (req, res) => {
   const { username, password } = req.body;
 
   console.log(`Login attempt for username: ${username}`);
 
-  // Fetch user from the database
   db.getUserByUsername(username, async (err, user) => {
     if (err) {
       console.error(`Database error during login for ${username}:`, err.message);
@@ -50,17 +122,16 @@ router.post('/login', async (req, res) => {
     }
 
     try {
-      // Compare password hashes
       const isMatch = await bcrypt.compare(password, user.password);
       if (!isMatch) {
         console.warn(`Password mismatch for username: ${username}`);
         return res.status(401).json({ error: 'Invalid credentials' });
       }
 
-      // Generate JWT token
       const token = jwt.sign({ id: user.id, username: user.username }, SECRET_KEY, { expiresIn: '1h' });
       console.log(`Token successfully generated for user: ${username}`);
 
+      updateAuthState(token);
       res.json({ token });
     } catch (error) {
       console.error(`Error during login for ${username}:`, error.message);
@@ -69,14 +140,13 @@ router.post('/login', async (req, res) => {
   });
 });
 
-// Refresh token endpoint
+// Protected Routes
 router.post('/refresh-token', authenticateToken, (req, res) => {
   const { id } = req.user;
   const now = Math.floor(Date.now() / 1000);
-  const tokenExp = req.user.exp || 0; // Ensure `exp` exists
+  const tokenExp = req.user.exp || 0;
   const timeLeft = tokenExp - now;
 
-  // Only refresh if the token expires in the next 5 minutes
   if (timeLeft > 5 * 60) {
     console.log('Token refresh not needed. Time left (seconds):', timeLeft);
     return res.status(400).json({ message: 'Token refresh not needed yet.' });
@@ -88,7 +158,6 @@ router.post('/refresh-token', authenticateToken, (req, res) => {
   res.json({ token: newToken });
 });
 
-// Get Active Users Endpoint
 router.get('/active-users', authenticateToken, (req, res) => {
   try {
     const activeUsers = getActiveUsers();

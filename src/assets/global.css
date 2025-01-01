@@ -60,7 +60,34 @@ body {
     flex-direction: column;
     justify-content: center;
     align-items: center;
-    }
+}
+
+.login-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    padding: 20px;
+    box-sizing: border-box;
+    background-color: var(--background-color);
+}
+
+.login-page {
+    max-width: 500px;
+    width: 50%;
+    padding: 20px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    background-color: #fff;
+}
+
+.login-page button {
+    display: block;
+    margin: 10px auto;
+    width: 80%;
+}
+
 
 /* Screen Split */
 .content-container {
@@ -316,10 +343,10 @@ textarea:focus {
 
 /* Menu Styles */
 .menu {
-    display: flex; 
-    justify-content: space-between; 
-    align-items: center; 
-    background-color: var(--primary-color); 
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: var(--primary-color);
     padding: 10px;
     border-radius: 8px;
     border: 2px solid var(--highlight-border-color);
@@ -790,12 +817,12 @@ button-container {
 }
 
 .menu-stats {
-    margin-left: 0; 
+    margin-left: 0;
     font-size: var(--font-size-small);
     color: white;
-    text-align: left; 
-    flex: 1; 
-  }
+    text-align: left;
+    flex: 1;
+}
 
 /* Section Margins */
 .profile-details,
@@ -819,4 +846,34 @@ button:hover {
 
 .delete-account-button:hover {
     background-color: darkred;
+}
+
+.google-login-section {
+    display: flex; 
+    justify-content: center; 
+    align-items: center;
+    margin-top: 20px;
+}
+
+.google-login-button {
+    display: block;
+    width: 80%;
+    padding: 10px;
+    margin: 10px auto;
+    background-color: #4285f4;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-size: 16px;
+    text-align: center;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.google-login-button:hover {
+    background-color: #357ae8;
+}
+
+.google-login-button:active {
+    background-color: #2a65c7;
 }

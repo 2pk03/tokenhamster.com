@@ -1,9 +1,17 @@
+// middleware/authenticateToken.js
+
 const jwt = require('jsonwebtoken');
-require('dotenv').config(); // Ensure environment variables are loaded
+require('dotenv').config();
 
 const SECRET_KEY = process.env.SECRET_KEY || 'your_secret_key';
 
+const openRoutes = ['/user/auth/google', '/user/auth/google/callback'];
+
 function authenticateToken(req, res, next) {
+    if (openRoutes.includes(req.path)) {
+        return next(); // Skip token validation for these routes
+    }
+
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
 
@@ -18,15 +26,7 @@ function authenticateToken(req, res, next) {
             return res.status(403).json({ error: 'Invalid token' });
         }
 
-        const now = Math.floor(Date.now() / 1000);
-        if (user.exp && user.exp < now) {
-            console.error('Token has expired for user ID:', user.id);
-            return res.status(403).json({ error: 'Token has expired' });
-        }
-
-        // Attach user data to request
         req.user = user;
-
         next();
     });
 }

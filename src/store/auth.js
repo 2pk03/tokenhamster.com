@@ -6,6 +6,7 @@ import axios from 'axios';
 const state = {
     token: localStorage.getItem('token') || null,
     user: null,
+    isAuthenticated: false,
 };
 
 const mutations = {
@@ -16,6 +17,9 @@ const mutations = {
     setUser(state, user) {
         state.user = user;
     },
+    setAuthenticated(state, isAuthenticated) {
+        state.isAuthenticated = isAuthenticated; 
+    },
     clearAuth(state) {
         state.token = null;
         state.user = null;
@@ -24,11 +28,27 @@ const mutations = {
 };
 
 const actions = {
+    // Username/password login
     async login({ commit }, credentials) {
         const response = await axios.post('/api/user/auth/login', credentials);
         commit('setToken', response.data.token);
         commit('setUser', jwtDecode(response.data.token));
+        commit('setAuthenticated', true); // Mark as authenticated
     },
+
+    // Google login
+    async googleLogin({ commit }, idToken) {
+        try {
+            const response = await axios.post('/api/user/auth/google/validate', { idToken });
+            commit('setToken', response.data.token);
+            commit('setUser', jwtDecode(response.data.token));
+        } catch (error) {
+            console.error('Google login failed:', error);
+            throw new Error('Google login failed. Please try again.');
+        }
+    },
+
+    // Refresh token
     async refreshToken({ commit, state, dispatch }) {
         if (!state.token) return;
         try {
@@ -52,13 +72,15 @@ const actions = {
             dispatch('logout');
         }
     },
+
+    // Logout
     logout({ commit }) {
         commit('clearAuth');
     },
 };
 
 const getters = {
-    isAuthenticated: (state) => !!state.token,
+    isAuthenticated: (state) => state.isAuthenticated,
     user: (state) => state.user,
 };
 

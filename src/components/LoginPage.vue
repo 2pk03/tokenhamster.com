@@ -1,31 +1,46 @@
 <template>
-  <div class="login-page">
-    <h1>Login</h1>
-    <form @submit.prevent="login">
-      <div class="form-group">
-        <label for="username">Username</label>
-        <input type="text" id="username" v-model="username" required />
+  <div class="login-container">
+    <div class="login-page">
+      <h1>Login</h1>
+      <form @submit.prevent="login">
+        <div class="form-group">
+          <label for="username">Username</label>
+          <input type="text" id="username" v-model="username" required />
+        </div>
+        <div class="form-group">
+          <label for="password">Password</label>
+          <input type="password" id="password" v-model="password" required />
+        </div>
+        <button type="submit">Login</button>
+      </form>
+      <p v-if="error" class="error">{{ error }}</p>
+
+      <!-- Google Login Section -->
+      <div class="google-login-section">
+        <GoogleLogin :client-id="googleClientId" @success="handleGoogleLoginSuccess" @error="handleGoogleLoginError"
+          class="google-login-button">
+          Login with Google
+        </GoogleLogin>
       </div>
-      <div class="form-group">
-        <label for="password">Password</label>
-        <input type="password" id="password" v-model="password" required />
-      </div>
-      <button type="submit">Login</button>
-    </form>
-    <p v-if="error" class="error">{{ error }}</p>
+    </div>
   </div>
 </template>
 
 <script>
 import api from "@/api";
+import { GoogleLogin } from 'vue3-google-login';
 
 export default {
   name: "LoginPage",
+  components: {
+    GoogleLogin,
+  },
   data() {
     return {
       username: '',
       password: '',
       error: '',
+      googleClientId: process.env.VUE_APP_GOOGLE_CLIENT_ID,
     };
   },
   methods: {
@@ -51,7 +66,7 @@ export default {
         this.error = null;
 
         // Manually trigger isAuthenticated update (if needed)
-        this.$store.dispatch('auth/setAuthenticated', true);
+        this.$store.commit('auth/setAuthenticated', true);
 
         // Redirect to portfolio page
         console.log("Redirecting to /portfolio");
@@ -73,55 +88,35 @@ export default {
         }
       }
     },
+
+    // Google Login methods
+    async handleGoogleLoginSuccess(response) {
+      const idToken = response.credential;
+
+      try {
+        const backendResponse = await api.post('/user/auth/google/validate', { idToken });
+
+        const token = backendResponse.data.token;
+
+        // Save the token
+        localStorage.setItem('token', token);
+
+        console.log('Google login successful. Redirecting to /portfolio...');
+        this.$router.push('/portfolio');
+      } catch (error) {
+        console.error('Google login failed:', error);
+
+        if (error.response && error.response.status === 401) {
+          this.error = 'Google login failed: Invalid token. Please try again.';
+        } else {
+          this.error = 'Google login failed. Please try again.';
+        }
+      }
+    }
+  },
+  handleGoogleLoginError(error) {
+    console.error("Google login error:", error);
+    this.error = "Google login failed. Please try again.";
   },
 };
 </script>
-
-<style scoped>
-/* Styles remain unchanged */
-.login-page {
-  max-width: 400px;
-  margin: 50px auto;
-  padding: 20px;
-  border: 1px solid #ccc;
-  border-radius: 5px;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-}
-
-.form-group {
-  margin-bottom: 15px;
-}
-
-label {
-  display: block;
-  margin-bottom: 5px;
-  font-weight: bold;
-}
-
-input {
-  width: 100%;
-  padding: 8px;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-}
-
-button {
-  width: 100%;
-  padding: 10px;
-  background-color: #007bff;
-  color: #fff;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-button:hover {
-  background-color: #0056b3;
-}
-
-.error {
-  color: red;
-  margin-top: 10px;
-  text-align: center;
-}
-</style>
