@@ -1,3 +1,5 @@
+// middleware/countUsers.js
+
 const activeUsers = new Map(); // In-memory store for active users
 
 // Middleware to track active users
@@ -22,7 +24,5 @@ setInterval(() => {
         }
     }
 }, 60000); // Cleanup every minute
-
-// Export the middleware and helper
 
 module.exports = { trackActiveUsers, getActiveUsers };

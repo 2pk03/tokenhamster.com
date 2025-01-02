@@ -5,24 +5,26 @@ import axios from 'axios';
 
 const state = {
     token: localStorage.getItem('token') || null,
-    user: null,
-    isAuthenticated: false,
+    user: localStorage.getItem('token') ? jwtDecode(localStorage.getItem('token')) : null,
+    isAuthenticated: !!localStorage.getItem('token'),
 };
 
 const mutations = {
     setToken(state, token) {
         state.token = token;
         localStorage.setItem('token', token);
+
+        // Update isAuthenticated and user when setting a token
+        state.isAuthenticated = !!token;
+        state.user = token ? jwtDecode(token) : null;
     },
     setUser(state, user) {
         state.user = user;
     },
-    setAuthenticated(state, isAuthenticated) {
-        state.isAuthenticated = isAuthenticated; 
-    },
     clearAuth(state) {
         state.token = null;
         state.user = null;
+        state.isAuthenticated = false; // Explicitly mark as unauthenticated
         localStorage.removeItem('token');
     },
 };
@@ -33,7 +35,6 @@ const actions = {
         const response = await axios.post('/api/user/auth/login', credentials);
         commit('setToken', response.data.token);
         commit('setUser', jwtDecode(response.data.token));
-        commit('setAuthenticated', true); // Mark as authenticated
     },
 
     // Google login

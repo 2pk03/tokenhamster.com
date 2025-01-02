@@ -36,33 +36,33 @@ const promptInput = async (query) => {
 
 // check required secrets
 async function ensureSecrets() {
+    const requiredSecrets = [
+        'API_KEY_CRYPTOCOMPARE',
+        'VUE_APP_GOOGLE_CLIENT_ID',
+        'VUE_APP_GOOGLE_CLIENT_SECRET',
+    ];
+
     let secretsUpdated = false;
 
-    const secrets = {
-        API_KEY_CRYPTOCOMPARE,
-        VUE_APP_GOOGLE_CLIENT_ID,
-        VUE_APP_GOOGLE_CLIENT_SECRET,
-    };
-
-    for (const [key, value] of Object.entries(secrets)) {
-        if (!value) {
-            console.log(`[INFO] Missing secret: ${key}`);
-            secrets[key] = await promptInput(`Enter value for ${key}: `);
-            secretsUpdated = true;
+    for (const secret of requiredSecrets) {
+        if (!process.env[secret]) {
+            console.error(`[ERROR] Missing required environment variable: ${secret}`);
+            console.error(`[INFO] Please add ${secret} to your .env file.`);
+            process.exit(1); // Terminate gracefully if a required variable is missing
         }
     }
 
-    // generate SECRET_KEY if missing
+    // Handle optional secrets
     if (!SECRET_KEY) {
         SECRET_KEY = crypto.randomBytes(64).toString('hex');
         console.log('[INFO] JWT secret created dynamically.');
         secretsUpdated = true;
     }
 
-    // Update .env file if any secrets were added
+    // Update .env file if optional secrets were generated
     if (secretsUpdated) {
         console.log('[INFO] Updating .env file with new secrets...');
-        const envContent = Object.entries({ ...secrets, SECRET_KEY })
+        const envContent = Object.entries({ SECRET_KEY })
             .map(([key, value]) => `${key}=${value}`)
             .join('\n');
         fs.writeFileSync('.env', envContent, { flag: 'a' }); // Append to .env

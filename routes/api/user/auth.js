@@ -5,6 +5,8 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const db = require('../../../database');
+const axios = require('axios');
+const fs = require('fs');
 const authenticateToken = require('../../../middleware/authenticateToken');
 const { trackActiveUsers, getActiveUsers } = require('../../../middleware/countUsers');
 // const { passport, loadStrategies } = require('../../../middleware/oauthprovider');
@@ -22,16 +24,19 @@ router.use(trackActiveUsers);
 const authState = {
   token: null,
   isAuthenticated: false,
+  user: null, // Track user details
 };
 
-function updateAuthState(token) {
+function updateAuthState(token, user = null) {
   authState.token = token;
   authState.isAuthenticated = !!token;
+  authState.user = user || (token ? jwt.verify(token, SECRET_KEY) : null); // Decode token for user info
 }
 
 function clearAuthState() {
   authState.token = null;
   authState.isAuthenticated = false;
+  authState.user = null;
 }
 
 // Oauth Providers, dynamically load OAuth strategies
@@ -52,37 +57,75 @@ function clearAuthState() {
 
 // Public Routes
 
+// google login oauth2
 router.post('/google/validate', async (req, res) => {
   const { idToken } = req.body;
 
   try {
-    const ticket = await googleClient.verifyIdToken({
-      idToken,
-      audience: 'YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com',
-    });
+      const ticket = await googleClient.verifyIdToken({
+          idToken,
+          audience: process.env.GOOGLE_CLIENT_ID,
+      });
 
-    const payload = ticket.getPayload();
-    const { sub: googleId, email, name, picture } = payload;
+      const payload = ticket.getPayload();
+      const { sub: googleId, email, name, picture } = payload;
 
-    // Check if user exists, create if not
-    let user = await db.getUserByGoogleId(googleId);
-    let isNewUser = false;
+      // Fetch the image from the Google URL
+      const response = await axios.get(picture, { responseType: 'arraybuffer' });
+      const imageBuffer = Buffer.from(response.data, 'binary');
 
-    if (!user) {
-      isNewUser = true; // User is being created
-      user = await db.createUser({ email, googleId, name, picture });
-    }
+      // Check if user exists
+      db.getUserByGoogleId(googleId, async (err, user) => {
+          if (err) {
+              console.error('Database error:', err.message);
+              return res.status(500).json({ error: 'Internal server error' });
+          }
 
-    // Generate a JWT
-    const token = jwt.sign({ id: user.id, email: user.email }, SECRET_KEY, {
-      expiresIn: '1h',
-    });
+          if (!user) {
+              // Create user with profile picture
+              db.createUserWithImage({ email, googleId, name, imageBuffer }, (createErr, newUser) => {
+                  if (createErr) {
+                      console.error('Error creating user:', createErr.message);
+                      return res.status(500).json({ error: 'Internal server error' });
+                  }
 
-    updateAuthState(token);
-    res.json({ token, isNewUser });
+                  console.log('User created:', newUser);
+
+                  // Create a default portfolio for the new user
+                  db.createPortfolio(newUser.id, 'Default Portfolio', (portfolioErr, portfolioId) => {
+                      if (portfolioErr) {
+                          console.error('Error creating default portfolio:', portfolioErr.message);
+                          return res.status(500).json({ error: 'Failed to create default portfolio.' });
+                      }
+                      console.log('Default portfolio created with ID:', portfolioId);
+
+                      // Generate token for the newly created user
+                      const token = jwt.sign({ id: newUser.id, email: newUser.email }, SECRET_KEY, {
+                          expiresIn: '1h',
+                      });
+                      return res.json({ token });
+                  });
+              });
+          } else {
+              // Optionally, update the user's profile picture
+              db.updateUserImage(googleId, imageBuffer, (updateErr) => {
+                  if (updateErr) {
+                      console.error('Error updating user image:', updateErr.message);
+                      return res.status(500).json({ error: 'Internal server error' });
+                  }
+                  console.log('User image updated');
+              });
+
+              // Generate token for the existing user
+              const token = jwt.sign({ id: user.id, email: user.email }, SECRET_KEY, {
+                  expiresIn: '1h',
+              });
+              res.json({ token });
+          }
+      });
   } catch (error) {
-    console.error('Error validating Google ID token:', error);
-    res.status(401).json({ error: 'Invalid Google ID token' });
+      console.error('Error during Google OAuth:', error.message);
+      res.status(401).json({ error: 'Invalid Google ID token' });
   }
 });
 
@@ -131,10 +174,13 @@ router.post('/login', async (req, res) => {
       const token = jwt.sign({ id: user.id, username: user.username }, SECRET_KEY, { expiresIn: '1h' });
       console.log(`Token successfully generated for user: ${username}`);
 
-      updateAuthState(token);
+      // Update Vuex-like auth state
+      updateAuthState(token, user);
+
       res.json({ token });
     } catch (error) {
       console.error(`Error during login for ${username}:`, error.message);
+      clearAuthState();
       res.status(500).json({ error: 'Internal server error' });
     }
   });
@@ -155,6 +201,9 @@ router.post('/refresh-token', authenticateToken, (req, res) => {
   const newToken = jwt.sign({ id }, SECRET_KEY, { expiresIn: '15m' });
   console.log('Token refreshed for user ID:', id);
 
+  // Update Vuex-like auth state
+  updateAuthState(newToken);
+
   res.json({ token: newToken });
 });
 
@@ -166,6 +215,12 @@ router.get('/active-users', authenticateToken, (req, res) => {
     console.error('Error fetching active users:', error.message);
     res.status(500).json({ error: 'Internal server error' });
   }
+});
+
+router.post('/logout', (req, res) => {
+  console.log('User logged out.');
+  clearAuthState();
+  res.status(200).json({ message: 'Logged out successfully.' });
 });
 
 module.exports = router;

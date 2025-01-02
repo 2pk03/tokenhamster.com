@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Google OAuth Callback</title>  
+</head>
+<body>
+  <script>
+    // Extract token from URL hash
+    const params = new URLSearchParams(window.location.hash.replace("#", ""));
+    const idToken = params.get("id_token");
+
+    if (idToken) {
+      // Save the token in localStorage and redirect to the app
+      localStorage.setItem("googleIdToken", idToken);
+      window.location.href = "/"; // Redirect to the main app
+    } else {
+      alert("Google Login Failed: No token received.");
+    }
+  </script>
+</body>
+</html>

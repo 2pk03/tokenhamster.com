@@ -1,38 +1,56 @@
+// routes/api/functional/price.js
+
 const express = require('express');
 const { db } = require('../../../database');
 const router = express.Router();
 
 // Fetch current price data for a cryptocurrency
-router.get('/current', (req, res) => {
-    const { cryptoSymbol, currency = 'USD' } = req.query;
+router.get('/current', async (req, res) => {
+    const { cryptoSymbol, currency } = req.query;
 
-    if (!cryptoSymbol || !currency) {
-        return res.status(400).json({ error: 'cryptoSymbol and currency are required' });
+    try {
+        // If cryptoSymbol and currency are provided, fetch specific data
+        if (cryptoSymbol && currency) {
+            const query = `
+                SELECT price, last_updated AS lastUpdated
+                FROM current_prices
+                WHERE crypto_symbol = ? AND currency = ?
+            `;
+            db.get(query, [cryptoSymbol, currency], (err, row) => {
+                if (err) {
+                    console.error('Error fetching current price:', err.message);
+                    return res.status(500).json({ error: 'Internal server error' });
+                }
+
+                if (!row) {
+                    return res.status(404).json({ error: 'Price data not found.' });
+                }
+
+                res.json(row);
+            });
+        } else {
+            // Fetch the most recent last_updated timestamp across all tokens
+            const query = `
+                SELECT MAX(last_updated) AS lastUpdated
+                FROM current_prices
+            `;
+            db.get(query, [], (err, row) => {
+                if (err) {
+                    console.error('Error fetching last poll timestamp:', err.message);
+                    return res.status(500).json({ error: 'Internal server error' });
+                }
+
+                if (!row || !row.lastUpdated) {
+                    return res.status(404).json({ error: 'No price data found.' });
+                }
+
+                res.json({ lastUpdated: row.lastUpdated });
+            });
+        }
+    } catch (error) {
+        console.error('Error fetching current prices:', error.message);
+        res.status(500).json({ error: 'Internal server error' });
     }
-
-    const query = `
-        SELECT price, last_updated
-        FROM current_prices
-        WHERE crypto_symbol = ? AND currency = ?
-    `;
-
-    db.get(query, [cryptoSymbol, currency], (err, row) => {
-        if (err) {
-            console.error('Error fetching price from database:', err.message);
-            return res.status(500).json({ error: 'Failed to fetch price from database' });
-        }
-
-        if (!row) {
-            return res.status(404).json({ error: `Price data not found for ${cryptoSymbol} in ${currency}` });
-        }
-
-        res.json({
-            symbol: cryptoSymbol,
-            currency,
-            price: row.price,
-            lastUpdated: row.last_updated,
-        });
-    });
 });
 
 // Conversion endpoint (still uses CryptoCompare API if needed)

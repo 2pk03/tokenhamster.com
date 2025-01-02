@@ -3,11 +3,11 @@
     <!-- Global Menu -->
     <nav class="menu" v-if="$route.path !== '/login'">
       <div class="menu-stats">
-    <strong>Statistics:</strong>
-    <span>Active Users: {{ activeUsers }}</span> | <span>Data Polled: {{ lastPoll }}</span>
-  </div>
+        <strong>Statistics:</strong>
+        <span>Active Users: {{ activeUsers }}</span> | <span>Data Polled: {{ lastPoll }}</span>
+      </div>
       <div class="menu-overview"></div>
-      <ul>        
+      <ul>
         <li class="portfolio-button-container">
           <button class="menu-button add-token-button" @click="openAddTokenModal">+ Add Token</button>
         </li>
@@ -107,18 +107,18 @@ export default {
     },
     toggleDropdown(event) {
       event.stopPropagation();
-      this.isDropdownOpen = !this.isDropdownOpen; // Toggle dropdown state
+      this.isDropdownOpen = !this.isDropdownOpen;
     },
     closeDropdown(event) {
       const dropdown = this.$refs.dropdown;
       const profilePicture = this.$refs.profilePicture;
       if (dropdown && profilePicture && !dropdown.contains(event.target) && !profilePicture.contains(event.target)) {
-        this.isDropdownOpen = false; // Close dropdown only if click is outside
+        this.isDropdownOpen = false;
       }
     },
     async fetchActiveUsers() {
       try {
-        const response = await api.get("/statistics/active-users");
+        const response = await api.get("/user/auth/active-users");
         this.activeUsers = response.data.count;
       } catch (error) {
         console.error("Error fetching active users:", error);
@@ -126,12 +126,7 @@ export default {
     },
     async fetchLastPoll() {
       try {
-        const response = await api.get("/functional/price/current", {
-          params: {
-            cryptoSymbol: "BTC", // You can customize this for other tokens
-            currency: "USD",
-          },
-        });
+        const response = await api.get("/functional/price/current");
 
         const lastUpdated = response.data.lastUpdated;
 
@@ -139,19 +134,19 @@ export default {
         this.lastPoll = new Intl.DateTimeFormat(navigator.language, {
           dateStyle: "short",
           timeStyle: "short",
-        }).format(new Date(`${lastUpdated}Z`)); // Append 'Z' to treat it as UTC
+        }).format(new Date(`${lastUpdated}Z`));
       } catch (error) {
         console.error("Error fetching last poll timestamp:", error);
         this.lastPoll = "N/A";
       }
     },
     openAddTokenModal() {
-      this.showAddTokenModal = true; // Ensure modal opens
+      this.showAddTokenModal = true;
     },
     closeAddTokenModal() {
       this.showAddTokenModal = false;
       this.resetTokenForm();
-      EventBus.emit("refreshPortfolio"); // Emit the event to refresh portfolio
+      EventBus.emit("refreshPortfolio");
     },
     resetTokenForm() {
       this.searchQuery = "";
@@ -213,11 +208,27 @@ export default {
     },
     async loadUserProfile() {
       try {
-        const response = await api.get('/user/profile');
-        this.profilePicture = response.data.profilePicture || '/logo.webp';
+        const response = await api.get("/user/profile");
+
+        // Fetch and load the profile picture
+        this.loadProfilePicture(response.data.profilePicture);
       } catch (error) {
-        console.error('Error loading profile picture:', error);
-        this.profilePicture = '/logo.webp'; // Default fallback
+        console.error("Error loading profile data:", error);
+        this.profilePicture = "/logo.webp"; // Fallback
+      }
+    },
+    async loadProfilePicture(profilePictureUrl) {
+      try {
+        if (!profilePictureUrl) {
+          this.profilePicture = "/logo.webp"; // Fallback if no picture exists
+          return;
+        }
+
+        const response = await api.get(profilePictureUrl, { responseType: "blob" });
+        this.profilePicture = URL.createObjectURL(response.data);
+      } catch (error) {
+        console.error("Error loading profile picture:", error);
+        this.profilePicture = "/logo.webp"; // Fallback
       }
     },
     goToProfile() {

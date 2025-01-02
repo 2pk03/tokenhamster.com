@@ -341,6 +341,22 @@ textarea:focus {
     }
 }
 
+@media (max-width: var(--breakpoint-md)) {
+    .profile-picture {
+        width: 100px;
+        height: 100px;
+    }
+
+    .profile-name {
+        font-size: calc(var(--font-size-large) * 0.8);
+    }
+
+    .profile-email,
+    .profile-id {
+        font-size: var(--font-size-small);
+    }
+}
+
 /* Menu Styles */
 .menu {
     display: flex;
@@ -782,10 +798,14 @@ button-container {
  * Profile Page Styles
  ****************************************************/
 
-.profile-page {
+ .profile-page {
     max-width: 600px;
-    margin: 0 auto;
+    margin: 50px auto;
     padding: 20px;
+    text-align: center;
+    background-color: var(--background-color);
+    border-radius: 8px;
+    box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
 }
 
 .profile-container {
@@ -798,22 +818,26 @@ button-container {
 
 .profile-picture:hover {
     transform: scale(1.1);
-    box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.2);
+    box-shadow: 0px 6px 12px rgba(0, 0, 0, 0.3);
 }
 
 /* Profile Picture Section */
-.profile-picture-section {
+.profile-section {
     display: flex;
     flex-direction: column;
     align-items: center;
     margin-bottom: 20px;
+    margin-bottom: var(--spacing-large);
 }
 
 .profile-picture {
     width: 150px;
     height: 150px;
     border-radius: 50%;
-    margin-bottom: 10px;
+    object-fit: cover;
+    border: 3px solid var(--primary-color);
+    box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.2);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 
 .menu-stats {
@@ -822,6 +846,30 @@ button-container {
     color: white;
     text-align: left;
     flex: 1;
+}
+
+.profile-details {
+    background-color: white;
+    padding: var(--spacing-large);
+    border-radius: 8px;
+    box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
+    text-align: left; 
+    margin: 0 auto; 
+    max-width: 500px;
+}
+
+.profile-name {
+    font-size: var(--font-size-large);
+    font-weight: bold;
+    color: var(--primary-color);
+    margin-bottom: var(--spacing-base);
+}
+
+.profile-email,
+.profile-id {
+    font-size: var(--font-size-base);
+    color: var(--text-color);
+    margin: var(--spacing-small) 0;
 }
 
 /* Section Margins */
@@ -876,4 +924,93 @@ button:hover {
 
 .google-login-button:active {
     background-color: #2a65c7;
+}
+
+/****************************************************
+ * Portfolio Page Styles
+ ****************************************************/
+
+ .portfolio-actions {
+    display: flex;
+    justify-content: center; /* Center the buttons */
+    gap: 30px; /* Add 30px space between buttons */
+    margin-top: var(--spacing-large);
+}
+
+.action-card,
+.confirmation-card {
+    background-color: var(--background-color);
+    padding: var(--spacing-large);
+    border-radius: var(--border-radius);
+    box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
+    text-align: left;
+    margin: 0 auto;
+    max-width: 500px; 
+    border-left: 8px solid orange;
+}
+
+.action-button {
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    padding: var(--spacing-small) var(--spacing-medium);
+    border-radius: var(--border-radius-small);
+    cursor: pointer;
+    font-size: var(--font-size-base);
+    transition: background-color 0.3s ease;
+
+    /* Fallback spacing */
+    margin: 0 15px; /* Horizontal spacing between buttons */
+}
+
+.action-button:hover {
+    background-color: var(--primary-color-hover);
+}
+
+.confirm-button {
+    background-color: #e74c3c;
+    color: white;
+    border: none;
+    padding: var(--spacing-small) var(--spacing-medium);
+    border-radius: var(--border-radius-small);
+    cursor: pointer;
+    font-size: var(--font-size-base);
+    margin-right: var(--spacing-small);
+}
+
+.confirm-button:hover {
+    background-color: #c0392b;
+}
+
+.cancel-button {
+    background-color: gray;
+    color: white;
+    border: none;
+    padding: var(--spacing-small) var(--spacing-medium);
+    border-radius: var(--border-radius-small);
+    cursor: pointer;
+    font-size: var(--font-size-base);
+}
+
+.cancel-button:hover {
+    background-color: darkgray;
+}
+
+.warning-message {
+    color: red;
+    font-weight: bold;
+    margin-bottom: var(--spacing-base);
+    font-size: var(--font-size-small);
+}
+
+.upload-box {
+    background-color: var(--background-color);
+    padding: var(--spacing-large);
+    border-radius: var(--border-radius);
+    box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
+    text-align: center;
+    margin-top: var(--spacing-large);
+    max-width: 500px;
+    margin-left: auto; 
+    margin-right: auto;
 }

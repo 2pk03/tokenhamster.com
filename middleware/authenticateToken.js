@@ -26,7 +26,13 @@ function authenticateToken(req, res, next) {
             return res.status(403).json({ error: 'Invalid token' });
         }
 
-        req.user = user;
+        // Ensure necessary identifying information is present
+        if (!user.email) {
+            console.error('Token missing required user email');
+            return res.status(403).json({ error: 'Invalid token payload' });
+        }
+
+        req.user = user; // Attach user details from token payload
         next();
     });
 }

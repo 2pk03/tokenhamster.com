@@ -1,3 +1,5 @@
+// routes/api/functional/polling.js
+
 const express = require('express');
 const { startPollingForUser, stopPollingForUser } = require('../../../services/pollingService'); // Adjust path
 const router = express.Router();

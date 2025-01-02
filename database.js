@@ -27,17 +27,49 @@ function initializeDatabase() {
             )
         `);
 
-        // User-Cryptos table
+        // User-Cryptos and portfolio table
+
+        db.run(`
+            CREATE TABLE IF NOT EXISTS portfolios (
+                id INTEGER PRIMARY KEY AUTOINCREMENT, 
+                user_id INTEGER NOT NULL, 
+                name TEXT NOT NULL,  
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP, 
+                FOREIGN KEY (user_id) REFERENCES users(id) 
+            )
+        `);
+
         db.run(`
             CREATE TABLE IF NOT EXISTS user_cryptos (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id INTEGER NOT NULL,
                 crypto_symbol TEXT NOT NULL,
-                purchase_price REAL,        -- Price at which the token was purchased
-                purchase_currency TEXT,     -- Currency used for the purchase
-                purchase_date DATE,         -- Date the token was purchased
-                amount REAL DEFAULT 0,      -- Amount of crypto purchased
-                FOREIGN KEY (user_id) REFERENCES users(id)
+                purchase_price REAL, 
+                purchase_currency TEXT, 
+                purchase_date DATE, 
+                amount REAL DEFAULT 0, 
+                portfolio_id INTEGER, -- Add portfolio_id column
+                FOREIGN KEY (user_id) REFERENCES users(id),
+                FOREIGN KEY (portfolio_id) REFERENCES portfolios(id)
+            )
+        `);
+
+        // Ensure index exists on portfolio_id and user_id
+       db.run(`
+                CREATE INDEX IF NOT EXISTS idx_portfolio_user 
+                ON user_cryptos (portfolio_id, user_id);
+       `);
+
+        // Enable foreign key constraints
+        db.run(`PRAGMA foreign_keys = ON;`);
+
+        db.run(`
+            CREATE TABLE IF NOT EXISTS portfolios (
+                id INTEGER PRIMARY KEY AUTOINCREMENT, 
+                user_id INTEGER NOT NULL, 
+                name TEXT NOT NULL,  
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP, 
+                FOREIGN KEY (user_id) REFERENCES users(id) 
             )
         `);
 
@@ -120,7 +152,7 @@ function initializeDatabase() {
         // SQLLite related code
         // Check if 'profilePicture' column exists in 'users' table
         db.all(
-            `PRAGMA table_info(users);`,
+            `PRAGMA table_info(users); `,
             (err, rows) => {
                 if (err) {
                     console.error('Error checking users table schema:', err.message);
@@ -142,55 +174,14 @@ function initializeDatabase() {
             }
         );
 
-        // Add admin user
-        const adminUsername = 'admin';
-        const adminEmail = 'admin@example.com';
-        const adminPassword = 'adminpassword';
-
-        db.get(
-            `SELECT * FROM users WHERE username = ?`,
-            [adminUsername],
-            async (err, row) => {
-                if (err) {
-                    console.error('Error checking for admin user:', err.message);
-                } else if (!row) {
-                    console.log('Admin user not found. Creating now...');
-                    const hashedPassword = await bcrypt.hash(adminPassword, 10);
-
-                    db.run(
-                        `INSERT INTO users (username, email, password) VALUES (?, ?, ?)`,
-                        [adminUsername, adminEmail, hashedPassword],
-                        function (insertErr) {
-                            if (insertErr) {
-                                console.error('Failed to insert admin user:', insertErr.message);
-                            } else {
-                                console.log('Admin user created successfully.');
-
-                                // Automatically add BTC to the admin's portfolio
-                                const adminUserId = this.lastID; // Get the ID of the new admin
-                                const addCryptoQuery = `
-                                    INSERT INTO user_cryptos (user_id, crypto_symbol, purchase_price, purchase_currency, purchase_date)
-                                    VALUES (?, ?, ?, ?, ?)
-                                `;
-
-                                db.run(addCryptoQuery, [adminUserId, 'BTC', 0, 'USD', '2023-01-01'], (cryptoErr) => {
-                                    if (cryptoErr) {
-                                        console.error(
-                                            `Failed to add BTC to admin portfolio for user ID ${adminUserId}:`,
-                                            cryptoErr.message
-                                        );
-                                    } else {
-                                        console.log(`BTC added to admin's portfolio for user ID ${adminUserId}`);
-                                    }
-                                });
-                            }
-                        }
-                    );
-                } else {
-                    console.log('Admin user already exists.');
-                }
+        // Check if 'oauthProvider' column exists in 'users' table
+        db.run(`ALTER TABLE users ADD COLUMN oauthId TEXT UNIQUE DEFAULT NULL`, (alterErr) => {
+            if (alterErr) {
+                console.error('Error adding oauthId column:', alterErr.message);
+            } else {
+                console.log('oauthId column added successfully.');
             }
-        );
+        });        
     });
 }
 
@@ -221,13 +212,21 @@ function addUser(username, email, password, callback) {
     });
 }
 
-// Add a crypto to track for a user
-function addCrypto(userId, cryptoSymbol, purchasePrice, purchaseCurrency, purchaseDate, amount, callback) {
+// Create a new portfolio for a user
+function createPortfolio(userId, portfolioName, callback) {
     const query = `
-        INSERT INTO user_cryptos (user_id, crypto_symbol, purchase_price, purchase_currency, purchase_date, amount)
-        VALUES (?, ?, ?, ?, ?, ?)
+        INSERT INTO portfolios (user_id, name)
+        VALUES (?, ?)
     `;
-    db.run(query, [userId, cryptoSymbol, purchasePrice, purchaseCurrency, purchaseDate, amount], callback);
+    db.run(query, [userId, portfolioName], function (err) {
+        if (err) {
+            console.error('Error creating portfolio:', err.message);
+            callback(err, null);
+        } else {
+            console.log(`Portfolio created successfully for user ID: ${userId}`);
+            callback(null, this.lastID); // Return the newly created portfolio ID
+        }
+    });
 }
 
 // Fetch historical data for a crypto
@@ -281,45 +280,40 @@ function getUserByUsername(username, callback) {
 }
 
 // Fetch a user by their Google ID (oauthId)
-function getUserByGoogleId(googleId) {
-    return new Promise((resolve, reject) => {
-        db.get(
-            `SELECT * FROM users WHERE oauthId = ?`,
-            [googleId],
-            (err, row) => {
+function getUserByGoogleId(googleId, callback) {
+    const query = `SELECT * FROM users WHERE oauthId = ?`;
+    db.get(query, [googleId], (err, row) => {
+        if (err) {
+            console.error('Error fetching user by Google ID:', err.message);
+            callback(err, null);
+        } else {
+            callback(null, row);
+        }
+    });
+}
+
+// Create a new user in the database
+function createUser({ email, googleId, name, picture }) {
+    return new Promise(async (resolve, reject) => {
+        const username = name ? name.replace(/\s+/g, '').toLowerCase() : email.split('@')[0];
+        const placeholderPassword = `oauth-${googleId}`;
+
+        db.run(
+            `INSERT INTO users (username, email, password, oauthId, oauthProvider, profilePicture) VALUES (?, ?, ?, ?, ?, ?)`,
+            [username, email, placeholderPassword, googleId, 'google', picture],
+            function (err) {
                 if (err) {
-                    console.error('Error fetching user by Google ID:', err.message);
+                    console.error('Error creating user:', err.message);
                     reject(err);
                 } else {
-                    resolve(row);
+                    console.log(`User created successfully with ID: ${this.lastID}`);
+                    resolve({ id: this.lastID, username, email, picture });
                 }
             }
         );
     });
 }
 
-// Create a new user in the database
-function createUser({ email, googleId, username, profilePicture }) {
-    return new Promise((resolve, reject) => {
-        db.run(
-            `INSERT INTO users (email, oauthId, username, profilePicture) VALUES (?, ?, ?, ?)`,
-            [email, googleId, username, profilePicture],
-            function (err) {
-                if (err) {
-                    console.error('Error creating user:', err.message);
-                    reject(err);
-                } else {
-                    resolve({
-                        id: this.lastID,
-                        email,
-                        username,
-                        profilePicture,
-                    });
-                }
-            }
-        );
-    });
-}
 
 // Update supported tokens from the API
 async function updateSupportedTokens() {
@@ -391,20 +385,124 @@ function saveSupportedTokens(tokens, callback) {
     stmt.finalize(callback);
 }
 
+// Add a function to save or update the portfolio in bulk
+function savePortfolio(userId, portfolioId, portfolio, callback) {
+    db.serialize(() => {
+        db.run('BEGIN TRANSACTION');
+
+        // Clear the existing portfolio for the given portfolio_id
+        db.run(`DELETE FROM user_cryptos WHERE user_id = ? AND portfolio_id = ?`, [userId, portfolioId], (deleteErr) => {
+            if (deleteErr) {
+                console.error('Error clearing portfolio:', deleteErr.message);
+                db.run('ROLLBACK');
+                if (callback) callback(deleteErr);
+                return;
+            }
+
+            const insertStmt = db.prepare(`
+                INSERT INTO user_cryptos (user_id, portfolio_id, crypto_symbol, purchase_price, purchase_currency, purchase_date, amount)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            `);
+
+            portfolio.forEach(({ Symbol, "Purchase Price": purchasePrice, Currency, "Purchase Date": purchaseDate, Amount }) => {
+                insertStmt.run([userId, portfolioId, Symbol, purchasePrice, Currency, purchaseDate, Amount]);
+            });
+
+            insertStmt.finalize((finalizeErr) => {
+                if (finalizeErr) {
+                    console.error('Error finalizing portfolio insert:', finalizeErr.message);
+                    db.run('ROLLBACK');
+                    if (callback) callback(finalizeErr);
+                } else {
+                    db.run('COMMIT', (commitErr) => {
+                        if (commitErr) {
+                            console.error('Error committing transaction:', commitErr.message);
+                            db.run('ROLLBACK');
+                            if (callback) callback(commitErr);
+                        } else {
+                            console.log('Portfolio saved successfully for portfolio_id:', portfolioId);
+                            if (callback) callback(null);
+                        }
+                    });
+                }
+            });
+        });
+    });
+}
+
+
+function getUserByEmail(email, callback) {
+    const query = `SELECT * FROM users WHERE email = ?`;
+    db.get(query, [email], (err, row) => {
+        if (err) {
+            console.error('Error fetching user by email:', err.message);
+            callback(err, null);
+        } else {
+            callback(null, row);
+        }
+    });
+}
+
+function createUserWithImage({ email, googleId, name, imageBuffer }, callback) {
+    const query = `
+        INSERT INTO users (email, oauthId, username, profilePicture)
+        VALUES (?, ?, ?, ?)
+    `;
+    db.run(query, [email, googleId, name, imageBuffer], function (err) {
+        if (err) {
+            console.error('Error creating user:', err.message);
+            callback(err, null);
+        } else {
+            const userId = this.lastID; // ID of the newly created user
+
+            // Automatically create a default portfolio for the user
+            const portfolioQuery = `
+                INSERT INTO portfolios (user_id, name)
+                VALUES (?, 'Default Portfolio')
+            `;
+            db.run(portfolioQuery, [userId], (portfolioErr) => {
+                if (portfolioErr) {
+                    console.error('Error creating default portfolio:', portfolioErr.message);
+                    callback(portfolioErr, null);
+                } else {
+                    callback(null, { id: userId, email, username: name });
+                }
+            });
+        }
+    });
+}
+
+function updateUserImage(googleId, imageBuffer, callback) {
+    const query = `UPDATE users SET profilePicture = ? WHERE oauthId = ?`;
+    db.run(query, [imageBuffer, googleId], (err) => {
+        if (err) {
+            console.error('Error updating user image:', err.message);
+            callback(err);
+        } else {
+            callback(null);
+        }
+    });
+}
+
+
 // Export the function
 module.exports = {
     db,
     initializeDatabase,
-    addUser,
-    addCrypto,
+    // addUser,
     getHistoricalData,
     saveHistoricalData,
     saveAggregatedData,
     getAggregatedData,
     getUserByUsername,
     getUserByGoogleId,
-    createUser,
+    // createUser,
     updateSupportedTokens,
     saveSupportedTokens,
-    saveOrUpdateCurrentPrice
+    saveOrUpdateCurrentPrice,
+    savePortfolio,
+    getUserByEmail,
+    createUserWithImage,
+    updateUserImage,
+    createPortfolio,
 };

@@ -21,6 +21,7 @@ const router = createRouter({
 router.beforeEach((to, from, next) => {
     const backendRoutes = ['/user/auth/google', '/user/auth/google/callback'];
 
+    // Handle backend-delegated routes
     if (backendRoutes.includes(to.path)) {
         console.log(`Delegating ${to.path} to backend.`);
         window.location.href = to.fullPath; // Redirect the browser to the backend
@@ -28,11 +29,15 @@ router.beforeEach((to, from, next) => {
     }
 
     const isAuthenticated = store.getters['auth/isAuthenticated'];
+    console.log(`Route Guard: Navigating to ${to.path}, Authenticated: ${isAuthenticated}`);
+
+    // Redirect unauthenticated users trying to access protected routes
     if (to.meta.requiresAuth && !isAuthenticated) {
         console.log('Access denied: Redirecting to login');
         return next('/login');
     }
-    next();
+
+    next(); 
 });
 
 export default router;

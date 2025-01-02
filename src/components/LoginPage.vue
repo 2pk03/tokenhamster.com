@@ -1,45 +1,25 @@
 <template>
   <div class="login-container">
     <div class="login-page">
-      <h1>Login</h1>
-      <form @submit.prevent="login">
-        <div class="form-group">
-          <label for="username">Username</label>
-          <input type="text" id="username" v-model="username" required />
-        </div>
-        <div class="form-group">
-          <label for="password">Password</label>
-          <input type="password" id="password" v-model="password" required />
-        </div>
-        <button type="submit">Login</button>
-      </form>
-      <p v-if="error" class="error">{{ error }}</p>
-
-      <!-- Google Login Section -->
-      <div class="google-login-section">
-        <GoogleLogin :client-id="googleClientId" @success="handleGoogleLoginSuccess" @error="handleGoogleLoginError"
-          class="google-login-button">
-          Login with Google
-        </GoogleLogin>
-      </div>
+      <center><h1>Token Hamster</h1></center>
+      <button @click="initiateGoogleLogin" class="google-login-button">
+        Login with Google
+      </button>
     </div>
   </div>
 </template>
 
 <script>
 import api from "@/api";
-import { GoogleLogin } from 'vue3-google-login';
+import { jwtDecode } from 'jwt-decode';
 
 export default {
   name: "LoginPage",
-  components: {
-    GoogleLogin,
-  },
   data() {
     return {
-      username: '',
-      password: '',
-      error: '',
+      username: "",
+      password: "",
+      error: "",
       googleClientId: process.env.VUE_APP_GOOGLE_CLIENT_ID,
     };
   },
@@ -49,6 +29,7 @@ export default {
         // Clear any previous token
         localStorage.removeItem('token');
         console.log("Attempting login with username:", this.username);
+        console.log('Store state after login:', this.$store.state.auth);
 
         // Make API call for login
         const response = await api.post('/user/auth/login', {
@@ -89,34 +70,59 @@ export default {
       }
     },
 
-    // Google Login methods
-    async handleGoogleLoginSuccess(response) {
-      const idToken = response.credential;
+   // Google Login
+    initiateGoogleLogin() {
+      if (!window.google || !window.google.accounts || !window.google.accounts.id) {
+        console.error("Google Identity Services SDK is not ready.");
+        this.error = "Google Login is not available at the moment. Please try again later.";
+        return;
+      }
+
+      const clientId = this.googleClientId;
+      console.log("Google Client ID:", clientId); // DEBUG
+      console.log("Runtime Origin:", window.location.origin); // DEBUG
 
       try {
-        const backendResponse = await api.post('/user/auth/google/validate', { idToken });
+        // Ensure Google SDK is initialized properly
+        window.google.accounts.id.initialize({
+          client_id: clientId,
+          callback: (response) => this.handleGoogleLogin(response.credential),
+        });
 
-        const token = backendResponse.data.token;
-
-        // Save the token
-        localStorage.setItem('token', token);
-
-        console.log('Google login successful. Redirecting to /portfolio...');
-        this.$router.push('/portfolio');
+        // Trigger the login UI
+        window.google.accounts.id.prompt();
       } catch (error) {
-        console.error('Google login failed:', error);
-
-        if (error.response && error.response.status === 401) {
-          this.error = 'Google login failed: Invalid token. Please try again.';
-        } else {
-          this.error = 'Google login failed. Please try again.';
-        }
+        console.error("Error initializing Google Login:", error);
+        this.error = "An error occurred during Google Login initialization.";
       }
-    }
-  },
-  handleGoogleLoginError(error) {
-    console.error("Google login error:", error);
-    this.error = "Google login failed. Please try again.";
-  },
+    },
+
+    async handleGoogleLogin(idToken) {
+      try {
+        const response = await api.post("/user/auth/google/validate", { idToken });
+        const token = response.data.token;
+
+        // Save token in localStorage
+        localStorage.setItem("token", token);
+        console.log("Google token saved to localStorage");
+
+        // Set authentication state in Vuex
+        this.$store.commit('auth/setToken', token);
+        this.$store.commit('auth/setUser', jwtDecode(token));
+        console.log("User authenticated and state updated");
+
+        // Redirect to the portfolio page
+        console.log("Redirecting to /portfolio");
+        this.$router.push('/portfolio').catch((err) => {
+          if (err.name !== 'NavigationDuplicated') {
+            console.error("Navigation error:", err);
+          }
+        });
+      } catch (err) {
+        console.error("Error validating Google login:", err.response ? err.response.data : err);
+        this.error = "Google login validation failed. Please try again.";
+      }
+    },
+  }, 
 };
 </script>
