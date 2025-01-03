@@ -6,7 +6,7 @@ const path = require('path');
 const bcrypt = require('bcryptjs');
 const fs = require('fs');
 const authenticateToken = require('../../../middleware/authenticateToken');
-const { db } = require('../../../database');
+const { db, logAuditAction } = require('../../../database');
 const config = require('../../../config');
 
 const router = express.Router();
@@ -69,32 +69,53 @@ router.get('/image/:id', authenticateToken, (req, res) => {
 });
 
 // delete account endpoint
-router.delete('/', authenticateToken, (req, res) => {
+router.delete('/delete', authenticateToken, (req, res) => {
     const { id } = req.user;
 
-    // Fetch the username of the user
-    db.get(`SELECT username FROM users WHERE id = ?`, [id], (err, row) => {
-        if (err) {
-            console.error('Error fetching user for deletion:', err.message);
-            return res.status(500).json({ error: 'Internal server error' });
-        }
+    db.serialize(() => {
+        db.run('BEGIN TRANSACTION');
 
-        if (!row) {
-            return res.status(404).json({ error: 'User not found' });
-        }
-
-        // Prevent deletion of the admin account
-        if (row.username === 'admin') {
-            return res.status(403).json({ error: 'Admin account cannot be deleted' });
-        }
-
-        // Proceed with deletion
-        db.run(`DELETE FROM users WHERE id = ?`, [id], (err) => {
-            if (err) {
-                console.error('Error deleting user:', err.message);
-                return res.status(500).json({ error: 'Failed to delete account' });
+        // Mark user as deleted
+        db.run(`UPDATE users SET deleted = 1 WHERE id = ?`, [id], (userErr) => {
+            if (userErr) {
+                console.error('Error marking user as deleted:', userErr.message);
+                db.run('ROLLBACK');
+                return res.status(500).json({ error: 'Failed to mark user as deleted.' });
             }
-            res.json({ message: 'Account deleted successfully' });
+
+            // Mark portfolios as deleted
+            db.run(`UPDATE portfolios SET deleted = 1 WHERE user_id = ?`, [id], (portfolioErr) => {
+                if (portfolioErr) {
+                    console.error('Error marking portfolios as deleted:', portfolioErr.message);
+                    db.run('ROLLBACK');
+                    return res.status(500).json({ error: 'Failed to mark portfolios as deleted.' });
+                }
+
+                db.run('COMMIT', (commitErr) => {
+                    if (commitErr) {
+                        console.error('Error committing transaction:', commitErr.message);
+                        return res.status(500).json({ error: 'Failed to complete account deletion.' });
+                    }
+
+                    // Log the audit action
+                    logAuditAction(
+                        id,
+                        null, // No specific portfolio
+                        'DELETE_ACCOUNT',
+                        null, // No specific crypto
+                        JSON.stringify({
+                            message: 'User account marked as inactive. According to AML regulations, data must be retained.',
+                        }),
+                        (auditErr) => {
+                            if (auditErr) {
+                                console.warn('Failed to log account deletion audit:', auditErr.message);
+                            }
+                        }
+                    );
+
+                    res.json({ message: 'Account and associated portfolios deleted successfully.' });
+                });
+            });
         });
     });
 });

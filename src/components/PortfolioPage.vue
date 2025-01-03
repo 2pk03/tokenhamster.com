@@ -20,6 +20,9 @@
             {{ formattedTotalValue }}
           </span>
         </h2>
+        <p class="portfolio-change" :class="{ positive: percentageChange > 0, negative: percentageChange < 0 }">
+          {{ percentageChange.toFixed(2) }}%
+        </p>
         <table class="portfolio-table">
           <thead>
             <tr>
@@ -73,18 +76,19 @@ export default {
   data() {
     return {
       portfolio: [],
-      totalValue: 0, // Total value of the portfolio
+      totalValue: 0,
+      percentageChange: 0,
       historicalData: [],
       pollingData: [],
       searchQuery: "",
       searchResults: [],
       selectedToken: null,
-      showDialog: false, // For confirmation dialog
-      tokenToRemove: null, // Token to remove after confirmation
-      purchaseDate: null, // Date selector for purchase date
-      purchasePrice: null, // Input for purchase price
-      purchaseCurrency: "USD", // Dropdown for purchase currency
-      pollingInterval: null, // Interval for polling updates
+      showDialog: false,
+      tokenToRemove: null,
+      purchaseDate: null,
+      purchasePrice: null,
+      purchaseCurrency: "USD",
+      pollingInterval: null,
     };
   },
   computed: {
@@ -112,34 +116,45 @@ export default {
       }
     },
 
-    // Fetch portfolio data
     async fetchPortfolioData() {
       try {
         const response = await api.get("/user/portfolio/fetch");
         this.portfolio = response.data.map((token) => ({
           ...token,
           currentPrice: null,
-          currentPriceConverted: null,
-          purchasePriceConverted: null,
           winLoss: null,
         }));
-        console.log("Initial Portfolio:", this.portfolio);
+        console.log("Portfolio fetched:", this.portfolio);
+
+        // Fetch current prices
         await this.updateCurrentPrices();
-        this.calculateTotalValue(); // Calculate total value after updating prices
-        await this.updatePortfolioCurrency();
+
+        // Calculate total value and percentage change
+        this.calculateTotalValue();
       } catch (err) {
-        console.error("Failed to fetch portfolio data:", err);
-        alert("Failed to fetch portfolio data. Please try again.");
+        console.error("Failed to fetch portfolio data:", err.message);
       }
     },
     calculateTotalValue() {
-      this.totalValue = this.portfolio.reduce((acc, token) => {
-        const value = (token.currentPrice || 0) * (token.amountBought || 0);
-        return acc + value;
-      }, 0);
-      console.log("Total Portfolio Value:", this.totalValue);
-    },
+  let totalPurchaseValue = 0;
+  let totalCurrentValue = 0;
 
+  // Calculate purchase value and current value for each token
+  this.portfolio.forEach((token) => {
+    const purchaseValue = (token.amountBought || 0) * (token.purchasePrice || 0);
+    const currentValue = (token.amountBought || 0) * (token.currentPrice || 0);
+
+    totalPurchaseValue += purchaseValue;
+    totalCurrentValue += currentValue;
+  });
+
+  this.totalValue = totalCurrentValue;
+
+  // Calculate percentage change
+  this.percentageChange = totalPurchaseValue
+    ? ((totalCurrentValue - totalPurchaseValue) / totalPurchaseValue) * 100
+    : 0;
+  },
     // Fetch historical data
     async fetchHistoricalData() {
       for (const token of this.portfolio) {
@@ -201,7 +216,7 @@ export default {
           console.log(`Updated data for ${token.symbol}:`, {
             totalPurchaseValue,
             currentTotalValue,
-            winLoss: token.winLoss,            
+            winLoss: token.winLoss,
           });
         } catch (err) {
           console.error(`Failed to fetch current price for ${token.symbol}:`, err);
@@ -349,7 +364,7 @@ export default {
     // Remove a token
     async removeToken(symbol) {
       try {
-        await api.post("/user/portfolio/remove", { symbol });
+        await api.post("/user/portfolio/token/remove", { symbol });
         this.portfolio = this.portfolio.filter((token) => token.symbol !== symbol); // Remove token locally
         console.log("Token removed:", symbol);
 

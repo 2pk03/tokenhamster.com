@@ -4,7 +4,7 @@ require('dotenv').config();
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const db = require('../../../database');
+const { db, getUserByGoogleId, createUserWithImage, updateUserImage, logAuditAction } = require('../../../database');
 const axios = require('axios');
 const fs = require('fs');
 const authenticateToken = require('../../../middleware/authenticateToken');
@@ -39,96 +39,137 @@ function clearAuthState() {
   authState.user = null;
 }
 
-// Oauth Providers, dynamically load OAuth strategies
-// loadStrategies();
+/*
+// Oauth Providers, dynamically load OAuth strategies - for later
+loadStrategies();
 
-// Google Login Route
-// router.get('/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
+Google Login Route
+router.get('/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
 
-// Google Callback Route
-// router.get(
-//   '/google/callback',
-//   passport.authenticate('google', { failureRedirect: '/login' }),
-//   (req, res) => {
-//     const token = jwt.sign({ id: req.user.id, email: req.user.email }, SECRET_KEY, { expiresIn: '1h' });
-//     res.redirect(`/login?token=${token}`); // Redirect back to frontend with token
-//   }
-// );
+Google Callback Route
+router.get(
+  '/google/callback',
+  passport.authenticate('google', { failureRedirect: '/login' }),
+  (req, res) => {
+    const token = jwt.sign({ id: req.user.id, email: req.user.email }, SECRET_KEY, { expiresIn: '1h' });
+    res.redirect(`/login?token=${token}`); // Redirect back to frontend with token
+  }
+);
+*/
 
 // Public Routes
 
-// google login oauth2
+// Google Login OAuth2
 router.post('/google/validate', async (req, res) => {
   const { idToken } = req.body;
 
   try {
-      const ticket = await googleClient.verifyIdToken({
-          idToken,
-          audience: process.env.GOOGLE_CLIENT_ID,
+    // Verify ID token
+    const ticket = await googleClient.verifyIdToken({
+      idToken,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+
+    const payload = ticket.getPayload();
+    const { sub: googleId, email, name, picture } = payload;
+
+    // Fetch the profile image
+    const response = await axios.get(picture, { responseType: 'arraybuffer' });
+    const imageBuffer = Buffer.from(response.data, 'binary');
+
+    // Check if user exists
+    const user = await new Promise((resolve, reject) => {
+      getUserByGoogleId(googleId, (err, row) => {
+        if (err) reject(err);
+        else resolve(row);
+      });
+    });
+
+    let userId;
+    if (!user) {
+      console.log('Creating a new user...');
+      // Create a new user with a default portfolio
+      const newUser = await new Promise((resolve, reject) => {
+        createUserWithImage({ email, googleId, name, imageBuffer }, (err, createdUser) => {
+          if (err) reject(err);
+          else resolve(createdUser);
+        });
+      });
+      userId = newUser.id;
+
+      // Log account creation
+      logAuditAction(
+        userId,
+        null,
+        'CREATE_ACCOUNT',
+        null,
+        JSON.stringify({ message: 'User account created via Google OAuth.' }),
+        (auditErr) => {
+          if (auditErr) console.warn('Failed to log account creation audit:', auditErr.message);
+        }
+      );
+    } else if (user.deleted === 1) {
+      console.log('Reactivating deleted user...');
+      userId = user.id;
+
+      // Reactivate user
+      await new Promise((resolve, reject) => {
+        const reactivateQuery = `
+          UPDATE users SET deleted = 0, profilePicture = ? WHERE oauthId = ?
+        `;
+        db.run(reactivateQuery, [imageBuffer, googleId], (err) => {
+          if (err) reject(err);
+          else resolve();
+        });
       });
 
-      const payload = ticket.getPayload();
-      const { sub: googleId, email, name, picture } = payload;
-
-      // Fetch the image from the Google URL
-      const response = await axios.get(picture, { responseType: 'arraybuffer' });
-      const imageBuffer = Buffer.from(response.data, 'binary');
-
-      // Check if user exists
-      db.getUserByGoogleId(googleId, async (err, user) => {
-          if (err) {
-              console.error('Database error:', err.message);
-              return res.status(500).json({ error: 'Internal server error' });
-          }
-
-          if (!user) {
-              // Create user with profile picture
-              db.createUserWithImage({ email, googleId, name, imageBuffer }, (createErr, newUser) => {
-                  if (createErr) {
-                      console.error('Error creating user:', createErr.message);
-                      return res.status(500).json({ error: 'Internal server error' });
-                  }
-
-                  console.log('User created:', newUser);
-
-                  // Create a default portfolio for the new user
-                  db.createPortfolio(newUser.id, 'Default Portfolio', (portfolioErr, portfolioId) => {
-                      if (portfolioErr) {
-                          console.error('Error creating default portfolio:', portfolioErr.message);
-                          return res.status(500).json({ error: 'Failed to create default portfolio.' });
-                      }
-                      console.log('Default portfolio created with ID:', portfolioId);
-
-                      // Generate token for the newly created user
-                      const token = jwt.sign({ id: newUser.id, email: newUser.email }, SECRET_KEY, {
-                          expiresIn: '1h',
-                      });
-                      return res.json({ token });
-                  });
-              });
-          } else {
-              // Optionally, update the user's profile picture
-              db.updateUserImage(googleId, imageBuffer, (updateErr) => {
-                  if (updateErr) {
-                      console.error('Error updating user image:', updateErr.message);
-                      return res.status(500).json({ error: 'Internal server error' });
-                  }
-                  console.log('User image updated');
-              });
-
-              // Generate token for the existing user
-              const token = jwt.sign({ id: user.id, email: user.email }, SECRET_KEY, {
-                  expiresIn: '1h',
-              });
-              res.json({ token });
-          }
+      // Reactivate associated portfolios
+      await new Promise((resolve, reject) => {
+        const reactivatePortfoliosQuery = `
+          UPDATE portfolios SET deleted = 0 WHERE user_id = ?
+        `;
+        db.run(reactivatePortfoliosQuery, [userId], (err) => {
+          if (err) reject(err);
+          else resolve();
+        });
       });
+
+      // Log account and portfolio reactivation
+      logAuditAction(
+        userId,
+        null,
+        'REACTIVATE_ACCOUNT',
+        null,
+        JSON.stringify({
+          message: 'User account and portfolios reactivated via Google OAuth.',
+        }),
+        (auditErr) => {
+          if (auditErr) console.warn('Failed to log account reactivation audit:', auditErr.message);
+        }
+      );
+    } else {
+      console.log('User already exists. Updating profile picture...');
+      userId = user.id;
+
+      // Optionally update profile picture
+      await new Promise((resolve, reject) => {
+        updateUserImage(googleId, imageBuffer, (err) => {
+          if (err) reject(err);
+          else resolve();
+        });
+      });
+    }
+
+    // Generate JWT token
+    const token = jwt.sign({ id: userId, email }, SECRET_KEY, { expiresIn: '1h' });
+    res.json({ token });
   } catch (error) {
-      console.error('Error during Google OAuth:', error.message);
-      res.status(401).json({ error: 'Invalid Google ID token' });
+    console.error('Error during Google OAuth:', error.message);
+    res.status(401).json({ error: 'Invalid Google ID token' });
   }
 });
 
+/* for later 
 router.post('/register', async (req, res) => {
   const { username, email, password } = req.body;
   console.log(`Attempting to register user: ${username}, email: ${email}`);
@@ -147,6 +188,7 @@ router.post('/register', async (req, res) => {
     res.status(500).json({ error: 'Server error' });
   }
 });
+*/
 
 router.post('/login', async (req, res) => {
   const { username, password } = req.body;

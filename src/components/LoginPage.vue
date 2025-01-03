@@ -1,7 +1,10 @@
 <template>
   <div class="login-container">
     <div class="login-page">
-      <center><h1>Token Hamster</h1></center>
+      <center>
+        <h1>TokenHamster</h1>
+        <strong>beta v. 0.6</strong>
+      </center>
       <button @click="initiateGoogleLogin" class="google-login-button">
         Login with Google
       </button>
@@ -12,6 +15,7 @@
 <script>
 import api from "@/api";
 import { jwtDecode } from 'jwt-decode';
+import EventBus from "@/eventBus";
 
 export default {
   name: "LoginPage",
@@ -70,7 +74,7 @@ export default {
       }
     },
 
-   // Google Login
+    // Google Login
     initiateGoogleLogin() {
       if (!window.google || !window.google.accounts || !window.google.accounts.id) {
         console.error("Google Identity Services SDK is not ready.");
@@ -104,15 +108,13 @@ export default {
 
         // Save token in localStorage
         localStorage.setItem("token", token);
-        console.log("Google token saved to localStorage");
 
         // Set authentication state in Vuex
         this.$store.commit('auth/setToken', token);
         this.$store.commit('auth/setUser', jwtDecode(token));
-        console.log("User authenticated and state updated");
+        EventBus.emit("userLoggedIn");
 
         // Redirect to the portfolio page
-        console.log("Redirecting to /portfolio");
         this.$router.push('/portfolio').catch((err) => {
           if (err.name !== 'NavigationDuplicated') {
             console.error("Navigation error:", err);
@@ -123,6 +125,6 @@ export default {
         this.error = "Google login validation failed. Please try again.";
       }
     },
-  }, 
+  },
 };
 </script>

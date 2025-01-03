@@ -37,8 +37,8 @@
     <router-view />
 
     <!-- Add Token Modal -->
-    <div v-if="showAddTokenModal" class="modal-overlay" @keydown.esc="closeAddTokenModal" tabindex="0">
-      <div class="modal">
+    <div v-if="showAddTokenModal" class="add-token-modal-overlay">
+      <div class="add-token-modal">
         <button class="close-button" @click="closeAddTokenModal">✖</button>
         <h3>Add a Token</h3>
         <input v-model="searchQuery" placeholder="Search for a token..." @input="searchTokens" class="search-input" />
@@ -214,13 +214,13 @@ export default {
         this.loadProfilePicture(response.data.profilePicture);
       } catch (error) {
         console.error("Error loading profile data:", error);
-        this.profilePicture = "/logo.webp"; // Fallback
+        this.profilePicture = "/logo.webp";
       }
     },
     async loadProfilePicture(profilePictureUrl) {
       try {
         if (!profilePictureUrl) {
-          this.profilePicture = "/logo.webp"; // Fallback if no picture exists
+          this.profilePicture = "/logo.webp";
           return;
         }
 
@@ -228,7 +228,7 @@ export default {
         this.profilePicture = URL.createObjectURL(response.data);
       } catch (error) {
         console.error("Error loading profile picture:", error);
-        this.profilePicture = "/logo.webp"; // Fallback
+        this.profilePicture = "/logo.webp";
       }
     },
     goToProfile() {
@@ -239,16 +239,18 @@ export default {
     this.loadUserProfile();
     this.fetchActiveUsers();
     this.fetchLastPoll();
+    EventBus.on("userLoggedIn", this.loadUserProfile);
 
     // Refresh active users every minute
     setInterval(() => {
       this.fetchActiveUsers();
     }, 60000);
 
-    document.addEventListener("click", this.closeDropdown); // Add click listener for closing dropdown
+    document.addEventListener("click", this.closeDropdown);
   },
   beforeUnmount() {
-    document.removeEventListener("click", this.closeDropdown); // Remove listener on component unmount
+    document.removeEventListener("click", this.closeDropdown);
+    EventBus.off("userLoggedIn", this.loadUserProfile);
   },
 };
 </script>

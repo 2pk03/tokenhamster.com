@@ -41,21 +41,39 @@ async function fetchCryptoPrice(cryptoSymbol, currency = 'USD') {
 }
 
 // Save polled data into the database
-function savePolledData({ crypto_symbol, currency, price, timestamp }) {
-    console.log(`Attempting to save data for ${crypto_symbol} (${currency}):`, { price, timestamp });
+function savePolledData({ crypto_symbol, currency, price, timestamp, volume, market_cap }) {
+    console.log(`Saving data for ${crypto_symbol} (${currency})`);
 
-    const query = `
+    // Update current_prices
+    const updateCurrentQuery = `
         INSERT INTO current_prices (crypto_symbol, currency, price, last_updated)
         VALUES (?, ?, ?, datetime('now'))
         ON CONFLICT (crypto_symbol, currency) DO UPDATE SET
         price = excluded.price,
         last_updated = excluded.last_updated
     `;
-    db.run(query, [crypto_symbol, currency, price], (err) => {
+    db.run(updateCurrentQuery, [crypto_symbol, currency, price], (err) => {
         if (err) {
-            console.error(`Error saving polled data for ${crypto_symbol} (${currency}):`, err.message);
+            console.error(`Error saving to current_prices:`, err.message);
         } else {
-            console.log(`Saved polled data for ${crypto_symbol} (${currency})`);
+            console.log(`Updated current_prices for ${crypto_symbol} (${currency})`);
+        }
+    });
+
+    // Insert into historical_data
+    const insertHistoricalQuery = `
+        INSERT INTO historical_data (crypto_symbol, date_time, price_usd, volume, market_cap)
+        VALUES (?, datetime('now'), ?, ?, ?)
+        ON CONFLICT (crypto_symbol, date_time) DO UPDATE SET
+        price_usd = excluded.price_usd,
+        volume = excluded.volume,
+        market_cap = excluded.market_cap
+    `;
+    db.run(insertHistoricalQuery, [crypto_symbol, price, volume, market_cap], (err) => {
+        if (err) {
+            console.error(`Error saving to historical_data:`, err.message);
+        } else {
+            console.log(`Inserted into historical_data for ${crypto_symbol}`);
         }
     });
 }
@@ -67,7 +85,7 @@ const getTrackedSymbolsAndCurrencies = () => {
             SELECT DISTINCT uc.crypto_symbol, uc.purchase_currency
             FROM user_cryptos uc
             INNER JOIN portfolios p ON uc.portfolio_id = p.id
-            WHERE p.name = 'Default Portfolio'
+            WHERE p.user_id = uc.user_id AND p.deleted = 0
         `;
 
         db.all(query, [], (err, rows) => {
@@ -84,7 +102,6 @@ const getTrackedSymbolsAndCurrencies = () => {
         });
     });
 };
-
 
 // Poll prices for all symbols and currencies
 async function pollPricesForSymbolsAndCurrencies() {
@@ -104,7 +121,10 @@ async function pollPricesForSymbolsAndCurrencies() {
         for (const { crypto_symbol, currency } of uniquePairs) {
             const data = await fetchCryptoPrice(crypto_symbol, currency);
             if (data) {
+                // Enhanced to include market_cap, volume, etc.
                 savePolledData(data);
+            } else {
+                console.warn(`No valid data received for ${crypto_symbol} (${currency})`);
             }
         }
     } catch (err) {
@@ -137,16 +157,15 @@ async function addTokenToPolling(cryptoSymbol, currency) {
     console.log(`Polling interval set for ${cryptoSymbol} (${currency}).`);
 }
 
-// Fetch and save historical data if missing
 async function fetchAndSaveHistoricalData(cryptoSymbol) {
     console.log(`Triggering historical data fetch for ${cryptoSymbol}`);
 
-    // Verify if the token belongs to the default portfolio
+    // Verify if the token belongs to an active portfolio
     const portfolioCheckQuery = `
         SELECT 1
         FROM user_cryptos uc
         INNER JOIN portfolios p ON uc.portfolio_id = p.id
-        WHERE p.name = 'Default Portfolio' AND uc.crypto_symbol = ?
+        WHERE p.user_id = uc.user_id AND p.deleted = 0 AND uc.crypto_symbol = ?
     `;
 
     db.get(portfolioCheckQuery, [cryptoSymbol], async (err, row) => {
@@ -156,7 +175,7 @@ async function fetchAndSaveHistoricalData(cryptoSymbol) {
         }
 
         if (!row) {
-            console.log(`Skipping historical data fetch: ${cryptoSymbol} is not in the default portfolio.`);
+            console.log(`Skipping historical data fetch: ${cryptoSymbol} is not in an active portfolio.`);
             return;
         }
 
@@ -229,6 +248,32 @@ async function fetchAndSaveHistoricalData(cryptoSymbol) {
 function startPolling() {
     console.log('Starting polling service...');
 
+    const refreshPolling = async () => {
+        try {
+            const trackedPairs = await getTrackedSymbolsAndCurrencies();
+
+            if (trackedPairs.length === 0) {
+                console.warn('No cryptos found to poll. Ensuring placeholder token BTC/USD is polled.');
+                if (!pollingIntervals['BTC-USD']) {
+                    addTokenToPolling('BTC', 'USD'); // Add placeholder token if not already added
+                }
+                return;
+            }
+
+            // Add any new tokens to polling
+            trackedPairs.forEach(({ crypto_symbol, currency }) => {
+                const pollingKey = `${crypto_symbol}-${currency}`;
+                if (!pollingIntervals[pollingKey]) {
+                    console.log(`Adding new token to polling: ${crypto_symbol} (${currency})`);
+                    addTokenToPolling(crypto_symbol, currency);
+                }
+            });
+        } catch (err) {
+            console.error('Error refreshing polling tokens:', err.message);
+        }
+    };
+
+    // Initial poll
     db.all(`SELECT DISTINCT crypto_symbol, purchase_currency FROM user_cryptos`, [], (err, rows) => {
         if (err) {
             console.error('Error fetching active cryptos for polling:', err.message);
@@ -237,8 +282,7 @@ function startPolling() {
 
         if (rows.length === 0) {
             console.warn('No cryptos found to poll. Adding placeholder tokens for BTC/USD.');
-            // Add a placeholder token to ensure polling starts
-            addTokenToPolling('BTC', 'USD');
+            addTokenToPolling('BTC', 'USD'); // Add placeholder token initially
             return;
         }
 
@@ -246,9 +290,15 @@ function startPolling() {
 
         // Start polling for each unique token-currency pair
         rows.forEach(({ crypto_symbol, purchase_currency }) => {
-            addTokenToPolling(crypto_symbol, purchase_currency);
+            const pollingKey = `${crypto_symbol}-${purchase_currency}`;
+            if (!pollingIntervals[pollingKey]) {
+                addTokenToPolling(crypto_symbol, purchase_currency);
+            }
         });
     });
+
+    // Periodic refresh every 5 minutes
+    setInterval(refreshPolling, DEFAULT_POLLING_INTERVAL);
 }
 
 // Stop polling for all cryptos and currencies

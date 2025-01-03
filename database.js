@@ -23,19 +23,21 @@ function initializeDatabase() {
                 password TEXT DEFAULT NULL,
                 oauthProvider TEXT DEFAULT NULL,
                 oauthId TEXT UNIQUE DEFAULT NULL,
-                profilePicture TEXT DEFAULT NULL
+                profilePicture TEXT DEFAULT NULL,
+                deleted INTEGER DEFAULT 0
             )
         `);
 
         // User-Cryptos and portfolio table
 
         db.run(`
-            CREATE TABLE IF NOT EXISTS portfolios (
+                CREATE TABLE IF NOT EXISTS portfolios (
                 id INTEGER PRIMARY KEY AUTOINCREMENT, 
                 user_id INTEGER NOT NULL, 
                 name TEXT NOT NULL,  
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP, 
-                FOREIGN KEY (user_id) REFERENCES users(id) 
+                deleted INTEGER DEFAULT 0, 
+                FOREIGN KEY (user_id) REFERENCES users(id)
             )
         `);
 
@@ -54,8 +56,23 @@ function initializeDatabase() {
             )
         `);
 
+        // add audit log
+        db.run(`
+                CREATE TABLE IF NOT EXISTS audit_log (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                portfolio_id INTEGER,
+                action TEXT NOT NULL, 
+                crypto_symbol TEXT,
+                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+                details TEXT, 
+                FOREIGN KEY (user_id) REFERENCES users(id),
+                FOREIGN KEY (portfolio_id) REFERENCES portfolios(id)
+            )
+        `);
+
         // Ensure index exists on portfolio_id and user_id
-       db.run(`
+        db.run(`
                 CREATE INDEX IF NOT EXISTS idx_portfolio_user 
                 ON user_cryptos (portfolio_id, user_id);
        `);
@@ -173,59 +190,6 @@ function initializeDatabase() {
                 }
             }
         );
-
-        // Check if 'oauthProvider' column exists in 'users' table
-        db.run(`ALTER TABLE users ADD COLUMN oauthId TEXT UNIQUE DEFAULT NULL`, (alterErr) => {
-            if (alterErr) {
-                console.error('Error adding oauthId column:', alterErr.message);
-            } else {
-                console.log('oauthId column added successfully.');
-            }
-        });        
-    });
-}
-
-// Add a user
-function addUser(username, email, password, callback) {
-    const query = `INSERT INTO users (username, email, password) VALUES (?, ?, ?)`;
-    db.run(query, [username, email, password], function (err) {
-        if (err) {
-            return callback(err, null);
-        }
-
-        const userId = this.lastID;
-
-        // Automatically add BTC to the new user's portfolio
-        const addCryptoQuery = `
-            INSERT INTO user_cryptos (user_id, crypto_symbol, purchase_price, purchase_currency, purchase_date)
-            VALUES (?, ?, ?, ?, ?)
-        `;
-        db.run(addCryptoQuery, [userId, 'BTC', 0, 'USD', '2023-01-01'], (cryptoErr) => {
-            if (cryptoErr) {
-                console.error(`Failed to add BTC to portfolio for user ID ${userId}:`, cryptoErr.message);
-            } else {
-                console.log(`BTC added to portfolio for user ID ${userId}`);
-            }
-        });
-
-        callback(null, userId);
-    });
-}
-
-// Create a new portfolio for a user
-function createPortfolio(userId, portfolioName, callback) {
-    const query = `
-        INSERT INTO portfolios (user_id, name)
-        VALUES (?, ?)
-    `;
-    db.run(query, [userId, portfolioName], function (err) {
-        if (err) {
-            console.error('Error creating portfolio:', err.message);
-            callback(err, null);
-        } else {
-            console.log(`Portfolio created successfully for user ID: ${userId}`);
-            callback(null, this.lastID); // Return the newly created portfolio ID
-        }
     });
 }
 
@@ -273,9 +237,10 @@ function getAggregatedData(cryptoSymbol, startDate, endDate, callback) {
     `;
     db.all(query, [cryptoSymbol, startDate, endDate], callback);
 }
+
 // Fetch a user by username
 function getUserByUsername(username, callback) {
-    const query = `SELECT * FROM users WHERE username = ?`;
+    const query = `SELECT * FROM users WHERE username = ? AND deleted = 0`;
     db.get(query, [username], callback);
 }
 
@@ -291,29 +256,6 @@ function getUserByGoogleId(googleId, callback) {
         }
     });
 }
-
-// Create a new user in the database
-function createUser({ email, googleId, name, picture }) {
-    return new Promise(async (resolve, reject) => {
-        const username = name ? name.replace(/\s+/g, '').toLowerCase() : email.split('@')[0];
-        const placeholderPassword = `oauth-${googleId}`;
-
-        db.run(
-            `INSERT INTO users (username, email, password, oauthId, oauthProvider, profilePicture) VALUES (?, ?, ?, ?, ?, ?)`,
-            [username, email, placeholderPassword, googleId, 'google', picture],
-            function (err) {
-                if (err) {
-                    console.error('Error creating user:', err.message);
-                    reject(err);
-                } else {
-                    console.log(`User created successfully with ID: ${this.lastID}`);
-                    resolve({ id: this.lastID, username, email, picture });
-                }
-            }
-        );
-    });
-}
-
 
 // Update supported tokens from the API
 async function updateSupportedTokens() {
@@ -432,7 +374,7 @@ function savePortfolio(userId, portfolioId, portfolio, callback) {
 
 
 function getUserByEmail(email, callback) {
-    const query = `SELECT * FROM users WHERE email = ?`;
+    const query = `SELECT * FROM users WHERE email = ? AND deleted = 0`;
     db.get(query, [email], (err, row) => {
         if (err) {
             console.error('Error fetching user by email:', err.message);
@@ -453,18 +395,35 @@ function createUserWithImage({ email, googleId, name, imageBuffer }, callback) {
             console.error('Error creating user:', err.message);
             callback(err, null);
         } else {
-            const userId = this.lastID; // ID of the newly created user
+            const userId = this.lastID;
 
-            // Automatically create a default portfolio for the user
+            // Always create a new portfolio
             const portfolioQuery = `
                 INSERT INTO portfolios (user_id, name)
-                VALUES (?, 'Default Portfolio')
+                VALUES (?, ?)
             `;
-            db.run(portfolioQuery, [userId], (portfolioErr) => {
+            db.run(portfolioQuery, [userId, `${email}`], function (portfolioErr) {
                 if (portfolioErr) {
                     console.error('Error creating default portfolio:', portfolioErr.message);
                     callback(portfolioErr, null);
                 } else {
+                    const portfolioId = this.lastID;
+
+                    // Log portfolio creation
+                    logAuditAction(
+                        userId,
+                        portfolioId,
+                        'ADD_PORTFOLIO',
+                        null,
+                        JSON.stringify({ name: email }),
+                        (auditErr) => {
+                            if (auditErr) {
+                                console.warn('Failed to log portfolio creation:', auditErr.message);
+                            }
+                        }
+                    );
+
+                    console.log(`Portfolio created successfully for user ID: ${userId}`);
                     callback(null, { id: userId, email, username: name });
                 }
             });
@@ -484,19 +443,66 @@ function updateUserImage(googleId, imageBuffer, callback) {
     });
 }
 
+function logAuditAction(userId, portfolioId = null, action, cryptoSymbol = null, details = null, callback) {
+    const query = `
+        INSERT INTO audit_log (user_id, portfolio_id, action, crypto_symbol, details)
+        VALUES (?, ?, ?, ?, ?)
+    `;
+
+    db.run(query, [userId, portfolioId, action, cryptoSymbol, details], (err) => {
+        if (err) {
+            console.error(`Error logging audit action: ${err.message}`);
+            if (callback) callback(err);
+        } else {
+            const logMessage = portfolioId
+                ? `Audit logged: ${action} for portfolio ID ${portfolioId}`
+                : `Audit logged: ${action} for cryptoSymbol ${cryptoSymbol}`;
+            console.log(logMessage);
+            if (callback) callback(null);
+        }
+    });
+}
+
+function markUserAsDeleted(userId, callback) {
+    const query = `
+        UPDATE users SET deleted = 1 WHERE id = ?
+    `;
+    db.run(query, [userId], function (err) {
+        if (err) {
+            console.error(`Error marking user ${userId} as deleted:`, err.message);
+            if (callback) callback(err);
+        } else {
+            console.log(`User ${userId} marked as deleted.`);
+            if (callback) callback(null);
+        }
+    });
+}
+
+function isUserActive(userId, callback) {
+    const query = `
+        SELECT deleted FROM users WHERE id = ? 
+    `;
+    db.get(query, [userId], (err, row) => {
+        if (err) {
+            console.error(`Error checking active status for user ${userId}:`, err.message);
+            callback(err, null);
+        } else {
+            const isActive = row?.deleted === 0;
+            callback(null, isActive);
+        }
+    });
+}
 
 // Export the function
 module.exports = {
     db,
     initializeDatabase,
-    // addUser,
     getHistoricalData,
     saveHistoricalData,
     saveAggregatedData,
     getAggregatedData,
     getUserByUsername,
     getUserByGoogleId,
-    // createUser,
     updateSupportedTokens,
     saveSupportedTokens,
     saveOrUpdateCurrentPrice,
@@ -504,5 +510,5 @@ module.exports = {
     getUserByEmail,
     createUserWithImage,
     updateUserImage,
-    createPortfolio,
+    logAuditAction,
 };
