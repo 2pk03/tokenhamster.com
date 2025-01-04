@@ -29,20 +29,40 @@ const mutations = {
     },
 };
 
+
 const actions = {
-    // Username/password login
+/*    // Username/password login => depricated!
     async login({ commit }, credentials) {
         const response = await axios.post('/api/user/auth/login', credentials);
         commit('setToken', response.data.token);
         commit('setUser', jwtDecode(response.data.token));
     },
+*/
+
+    // handle token expiration
+    monitorTokenExpiration({ state, dispatch }) {
+        setInterval(() => {
+            const token = state.token;
+            if (!token) return;
+
+            const decoded = jwtDecode(token);
+            const now = Math.floor(Date.now() / 1000);
+
+            if (decoded.exp < now) {
+                console.warn('Token expired. Logging out.');
+                dispatch('logout');
+                window.location.href = '/login';
+            }
+        }, 60000); // Check every minute
+    },
 
     // Google login
-    async googleLogin({ commit }, idToken) {
+    async googleLogin({ commit, dispatch }, idToken) {
         try {
             const response = await axios.post('/api/user/auth/google/validate', { idToken });
             commit('setToken', response.data.token);
             commit('setUser', jwtDecode(response.data.token));
+            dispatch('monitorTokenExpiration');
         } catch (error) {
             console.error('Google login failed:', error);
             throw new Error('Google login failed. Please try again.');

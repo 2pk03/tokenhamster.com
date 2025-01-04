@@ -39,12 +39,27 @@ body {
     color: var(--text-color);
     background-color: var(--background-color);
     margin: 0 auto;
+    width: 96%;
     margin-top: 20px;
-    width: 90%;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     box-sizing: border-box;
 }
+
+main {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+
+.center-content {
+    text-align: center;
+    margin-bottom: 20px;
+  }
 
 /* Container Styles */
 .container {
@@ -60,6 +75,14 @@ body {
     flex-direction: column;
     justify-content: center;
     align-items: center;
+}
+
+.page-container {
+    max-width: 1400px;
+    margin: 50px auto;
+    padding: 20px;
+    text-align: center;
+    background-color: var(--background-color);
 }
 
 .login-container {
@@ -81,13 +104,6 @@ body {
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
     background-color: #fff;
 }
-
-.login-page button {
-    display: block;
-    margin: 10px auto;
-    width: 80%;
-}
-
 
 /* Screen Split */
 .content-container {
@@ -150,18 +166,72 @@ a:hover {
 
 /* Buttons */
 button {
-    background-color: var(--primary-color);
-    color: #fff;
-    border: none;
+    width: 150px;
+    height: auto; 
+    background-color: white;
+    color: darkblue;
+    border: 1px solid darkblue;
     padding: var(--spacing-small) var(--spacing-base);
-    border-radius: 4px;
+    border-radius: 0; 
     cursor: pointer;
     font-size: var(--font-size-base);
     transition: background-color 0.3s ease;
+    margin: 10px; 
 }
 
-button:hover {
-    background-color: var(--secondary-color);
+.button-imp {
+    width: 150px;
+    height: auto; 
+    background-color: white;
+    color: orangered;
+    border: 1px solid orangered;
+    padding: var(--spacing-small) var(--spacing-base);
+    border-radius: 0; 
+    cursor: pointer;
+    font-size: var(--font-size-base);
+    transition: background-color 0.3s ease;
+    margin: 10px; 
+}
+
+.button-large {
+    width: 350px;
+    height: auto; 
+    background-color: white;
+    color: darkblue;
+    border: 1px solid darkblue;
+    padding: var(--spacing-small) var(--spacing-base);
+    border-radius: 0; 
+    cursor: pointer;
+    font-size: var(--font-size-base);
+    transition: background-color 0.3s ease;
+    margin: 10px; 
+}
+
+.button-large-imp {
+    width: 350px;
+    height: auto; 
+    background-color: white;
+    color: orangered;
+    border: 1px solid orangered;
+    padding: var(--spacing-small) var(--spacing-base);
+    border-radius: 0; 
+    cursor: pointer;
+    font-size: var(--font-size-base);
+    transition: background-color 0.3s ease;
+    margin: 10px; 
+}
+
+
+button:hover,
+.button-large:hover {
+    background-color: darkblue;
+    color: white
+}
+
+.button-imp:hover,
+.button-large-imp:hover {
+    background-color: orangered;
+    color: white;
 }
 
 /****************************************************
@@ -397,28 +467,6 @@ a:hover {
     text-decoration: none;
 }
 
-/* Base Button Styles */
-button,
-.menu-button {
-    display: inline-block;
-    padding: 10px 20px;
-    background-color: var(--highlight-border-color);
-    color: white;
-    border: 2px solid var(--highlight-border-color);
-    border-radius: 8px;
-    text-align: center;
-    cursor: pointer;
-    font-size: 16px;
-    transition: background-color 0.3s ease, color 0.3s ease;
-}
-
-/* Hover Effect for Default Buttons */
-button:hover,
-.menu-button:hover {
-    background-color: transparent;
-    color: var(--highlight-border-color);
-}
-
 /* Special Buttons: Remove and Logout */
 .logout-button {
     background-color: var(--accent-color);
@@ -602,10 +650,6 @@ button-container {
     margin-left: var(--spacing-small);
 }
 
-.cancel-button:hover {
-    background-color: #c0392b;
-}
-
 .add-token-button {
     display: inline-block;
     padding: 10px 20px;
@@ -765,16 +809,40 @@ button-container {
 }
 
 .menu-dropdown .dropdown-content {
-    position: absolute;
-    top: 50px;
-    /* Adjust position below the profile picture */
-    right: 0;
-    background-color: var(--background-color);
-    border: 2px solid var(--highlight-border-color);
-    border-radius: 8px;
-    box-shadow: 0px 8px 16px rgba(0, 0, 0, 0.2);
-    z-index: 1000;
     display: flex;
+    flex-direction: column;
+    align-items: stretch; 
+    position: absolute;
+    background-color: var(--background-color);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    list-style: none;
+    padding: 10px; 
+    margin-top: 10px; 
+    min-width: 150px; 
+    z-index: 10;
+    top: calc(100% + 10px);
+    left: 50%; 
+    transform: translate(-50%) 
+}
+
+.menu-dropdown .dropdown-content li {
+    width: 100%; 
+    margin: 5px 0;
+}
+
+.menu-dropdown .menu-item {
+    text-decoration: none;
+    color: var(--text-color);
+    padding: 10px 20px;
+    display: block; 
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.menu-dropdown .menu-item:hover {
+    background-color: var(--secondary-color); 
+    color: white; 
 }
 
 .menu-item {
@@ -793,6 +861,15 @@ button-container {
     background-color: var(--highlight-border-color);
     color: white;
 }
+
+.menu-dropdown.profile-container-menu {
+    display: flex;
+    align-items: center; 
+    justify-content: center; 
+    height: 100%; 
+    position: relative; 
+    margin-right: 40px;
+  }
 
 /* Hover Effect */
 .add-token-button:hover {
@@ -867,6 +944,7 @@ button-container {
     width: 40px;
     border-radius: 50%;
     cursor: pointer;
+    object-fit: cover;
     border: 2px solid var(--highlight-border-color);
     transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
@@ -884,12 +962,6 @@ button-container {
     margin-left: 20px;
 }
 
-.menu-dropdown {
-    position: relative;
-    display: inline-block;
-    width: auto;
-}
-
 .menu-header {
     font-size: var(--font-size-base);
     font-weight: bold;
@@ -905,34 +977,6 @@ button-container {
     background-color: var(--secondary-color);
 }
 
-.dropdown-content-menu {
-    position: absolute;
-    top: calc(100% + var(--spacing-small));
-    left: 0;
-    background-color: var(--background-color);
-    border: 2px solid var(--highlight-border-color);
-    border-radius: 8px;
-    box-shadow: 0px 8px 16px rgba(0, 0, 0, 0.2);
-    z-index: 1000;
-    min-width: 150px;
-    padding: var(--spacing-small);
-    display: flex;
-    flex-direction: column;
-}
-
-.menu-dropdown-item {
-    display: flex;
-    align-items: left;
-    padding: var(--spacing-small) var(--spacing-base);
-    font-size: var(--font-size-base);
-    color: var(--text-color);
-    cursor: pointer;
-    transition: background-color 0.3s ease, color 0.3s ease;
-    text-align: left;
-    width: 100%;
-    box-sizing: border-box;
-}
-
 .menu-item:hover {
     background-color: var(--secondary-color);
     color: white;
@@ -943,13 +987,7 @@ button-container {
     color: var(--highlight-border-color);
 }
 
-
-/****************************************************
- * Profile Page Styles
- ****************************************************/
-
-.profile-page {
-    max-width: 600px;
+.default-box {
     margin: 50px auto;
     padding: 20px;
     text-align: center;
@@ -990,27 +1028,70 @@ button-container {
     transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 
-/* Modern buttons with transparent background and hover effect */
-.profile-page button {
-    background-color: transparent;
-    color: var(--accent-color);
-    border: 2px solid var(--accent-color);
+.default-box-danger {
+    max-width: 900px;
+    margin: 50px auto;
+    padding: 20px;
+    text-align: center;
+    background-color: var(--background-color);
     border-radius: 8px;
-    padding: 8px 16px;
-    font-size: var(--font-size-small);
-    cursor: pointer;
-    transition: background-color 0.3s ease, color 0.3s ease;
-}
-
-.profile-page button:hover {
-    background-color: var(--accent-color);
-    color: #fff;
+    box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
+    border: 2px solid orangered;
 }
 
 /* Small button size */
-.profile-page button.small-button {
+.default-box button.small-button {
     padding: 6px 12px;
     font-size: var(--font-size-base);
+}
+
+/* Account Deletion Section */
+.default-box .delete-account-section {
+    border: 2px solid red;
+    padding: var(--spacing-large);
+    border-radius: var(--border-radius-small);
+    background-color: #fff5f5;
+    text-align: center;
+    margin-top: var(--spacing-large);
+}
+
+.delete-account-section h3 {
+    color: red;
+}
+
+.delete-warning {
+    color: red;
+    font-weight: bold;
+    margin-bottom: var(--spacing-medium);
+}
+
+.confirmation-warning,
+.final-warning {
+    color: red;
+    font-weight: bold;
+    margin: var(--spacing-medium) 0;
+}
+
+.delete-button-acc {
+    background-color: transparent;
+    color: red;
+    border: 2px solid red;
+}
+
+.delete-button-acc:hover {
+    background-color: red;
+    color: white;
+    border: 2px solid red;
+}
+
+.confirm-button-acc {
+    background-color: red;
+    color: white;
+    border: 2px solid red;
+}
+
+.confirm-button-acc:hover {
+    background-color: darkred;
 }
 
 .menu-stats {
@@ -1019,16 +1100,6 @@ button-container {
     color: white;
     text-align: left;
     flex: 1;
-}
-
-.profile-details {
-    background-color: white;
-    padding: var(--spacing-large);
-    border-radius: 8px;
-    box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
-    text-align: left;
-    margin: 0 auto;
-    max-width: 500px;
 }
 
 .profile-name {
@@ -1046,19 +1117,10 @@ button-container {
 }
 
 /* Section Margins */
-.profile-details,
+
 .password-section,
 .account-settings {
     margin-top: 20px;
-}
-
-/* Buttons */
-button {
-    /* Existing global button styles are retained */
-}
-
-button:hover {
-    /* Existing hover styles are retained */
 }
 
 .delete-account-button {
@@ -1069,6 +1131,9 @@ button:hover {
     background-color: darkred;
 }
 
+/****************************************************
+ * Login Page Styles
+ ****************************************************/
 .google-login-section {
     display: flex;
     justify-content: center;
@@ -1120,52 +1185,8 @@ button:hover {
     box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
     text-align: left;
     margin: 0 auto;
-    max-width: 500px;
+    max-width: 800px;
     border-left: 8px solid orange;
-}
-
-.action-button {
-    background-color: var(--primary-color);
-    color: white;
-    border: none;
-    padding: var(--spacing-small) var(--spacing-medium);
-    border-radius: var(--border-radius-small);
-    cursor: pointer;
-    font-size: var(--font-size-base);
-    transition: background-color 0.3s ease;
-
-    /* Fallback spacing */
-    margin: 0 15px;
-    /* Horizontal spacing between buttons */
-}
-
-.action-button:hover {
-    background-color: var(--primary-color-hover);
-}
-
-.confirm-button {
-    background-color: red;
-    color: white;
-    padding: var(--spacing-small) var(--spacing-base);
-    border-radius: var(--border-radius-small);
-    cursor: pointer;
-    margin-right: var(--spacing-small);
-}
-
-.confirm-button:hover {
-    background-color: darkred;
-}
-
-.cancel-button {
-    background-color: gray;
-    color: white;
-    padding: var(--spacing-small) var(--spacing-base);
-    border-radius: var(--border-radius-small);
-    cursor: pointer;
-}
-
-.cancel-button:hover {
-    background-color: darkgray;
 }
 
 .warning-message {
@@ -1310,72 +1331,31 @@ button:hover {
     cursor: pointer;
 }
 
-/* Account Deletion Section */
-.delete-account-section {
-    border: 2px solid red;
-    padding: var(--spacing-large);
-    border-radius: var(--border-radius-small);
-    background-color: #fff5f5;
+/****************************************************
+ * OTP Login page
+ ****************************************************/
+ .otp-container {
+    margin-top: 20px;
     text-align: center;
-    margin-top: var(--spacing-large);
-}
+  }
+  
+  .otp-input {
+    width: 80%;
+    padding: 10px;
+    font-size: 16px;
+    margin: 10px auto;
+    display: block;
+    border: 2px solid #ccc;
+    border-radius: 5px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  }
+  
+  .otp-input:focus {
+    outline: none;
+    border-color: #4285f4;
+  }
 
-.delete-account-section h3 {
-    color: red;
-}
-
-.delete-warning {
-    color: red;
-    font-weight: bold;
-    margin-bottom: var(--spacing-medium);
-}
-
-.confirmation-warning,
-.final-warning {
-    color: red;
-    font-weight: bold;
-    margin: var(--spacing-medium) 0;
-}
-
-.delete-button,
-.confirm-button,
-.cancel-button {
-    padding: var(--spacing-small) var(--spacing-medium);
-    border-radius: var(--border-radius-small);
-    font-size: var(--font-size-base);
-    cursor: pointer;
-    margin: var(--spacing-small) 5px;
-    transition: background-color 0.3s ease, color 0.3s ease;
-}
-
-.delete-button {
-    background-color: transparent;
-    color: red;
-    border: 2px solid red;
-}
-
-.delete-button:hover {
-    background-color: red;
-    color: white;
-}
-
-.confirm-button {
-    background-color: red;
-    color: white;
-    border: none;
-}
-
-.confirm-button:hover {
-    background-color: darkred;
-}
-
-.cancel-button {
-    background-color: gray;
-    color: white;
-    border: none;
-}
-
-.cancel-button:hover {
-    background-color: darkgray;
-}
-
+  .otp-error-message {
+    color: orangered;
+    margin-top: 10px;
+  }

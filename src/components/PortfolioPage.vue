@@ -1,5 +1,5 @@
 <template>
-  <div class="portfolio-page">
+  
     <div class="content-container">
       <!-- Left Section: Graphs -->
       <div class="graphs-section">
@@ -62,7 +62,7 @@
         <button class="cancel-button" @click="closeDialog">Cancel</button>
       </div>
     </div>
-  </div>
+ 
 </template>
 
 

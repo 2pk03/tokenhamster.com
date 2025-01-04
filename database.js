@@ -1,7 +1,48 @@
 const sqlite3 = require('sqlite3').verbose();
-const bcrypt = require('bcryptjs');
 const axios = require('axios');
 require('dotenv').config();
+const fs = require('fs');
+const crypto = require('crypto');
+const ENV_PATH = '.env';
+const IV_LENGTH = 16;
+const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY;
+
+// encryption
+if (!process.env.ENCRYPTION_KEY) {
+    try {
+        console.warn('ENCRYPTION_KEY not set. Generating a new key...');
+        const key = crypto.randomBytes(32).toString('hex');
+        fs.appendFileSync('.env', `\nENCRYPTION_KEY=${key}`);
+        console.log('New ENCRYPTION_KEY added to .env file');
+    } catch (err) {
+        console.error('Failed to write ENCRYPTION_KEY to .env:', err.message);
+        process.exit(1); // Exit to prevent running without a valid encryption key
+    }
+}
+
+function encrypt(text) {
+    const iv = crypto.randomBytes(IV_LENGTH);
+    const cipher = crypto.createCipheriv('aes-256-cbc', Buffer.from(ENCRYPTION_KEY, 'hex'), iv);
+    let encrypted = cipher.update(text, 'utf8', 'hex');
+    encrypted += cipher.final('hex');
+    return `${iv.toString('hex')}:${encrypted}`;
+}
+
+function decrypt(text) {
+    if (!text || typeof text !== 'string') {
+        throw new Error('Cannot decrypt: input text is null or not a string');
+    }
+
+    const [iv, encryptedText] = text.split(':');
+    if (!iv || !encryptedText) {
+        throw new Error('Malformed encrypted text');
+    }
+
+    const decipher = crypto.createDecipheriv('aes-256-cbc', Buffer.from(ENCRYPTION_KEY, 'hex'), Buffer.from(iv, 'hex'));
+    let decrypted = decipher.update(encryptedText, 'hex', 'utf8');
+    decrypted += decipher.final('utf8');
+    return decrypted;
+}
 
 const db = new sqlite3.Database('./tracker.db', (err) => {
     if (err) {
@@ -18,6 +59,8 @@ function initializeDatabase() {
         db.run(`
             CREATE TABLE IF NOT EXISTS users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+                sfa_sec_encrypted TEXT,
+                sfa_enabled INTEGER DEFAULT 0,
                 username TEXT NOT NULL,
                 email TEXT UNIQUE NOT NULL,
                 password TEXT DEFAULT NULL,
@@ -449,7 +492,11 @@ function logAuditAction(userId, portfolioId = null, action, cryptoSymbol = null,
         VALUES (?, ?, ?, ?, ?)
     `;
 
-    db.run(query, [userId, portfolioId, action, cryptoSymbol, details], (err) => {
+    const formattedDetails = typeof details === "object" && details !== null 
+        ? JSON.stringify(details) 
+        : details || "{}";
+
+    db.run(query, [userId, portfolioId, action, cryptoSymbol, formattedDetails], (err) => {
         if (err) {
             console.error(`Error logging audit action: ${err.message}`);
             if (callback) callback(err);
@@ -493,6 +540,69 @@ function isUserActive(userId, callback) {
     });
 }
 
+//helepr functions for 2FA
+function setTwoFactorSecret(userId, secret, callback) {
+    const encryptedSecret = encrypt(secret);
+    const query = `UPDATE users SET sfa_sec_encrypted = ?, sfa_enabled = 1 WHERE id = ?`;
+    db.run(query, [encryptedSecret, userId], function (err) {
+        if (err) {
+            console.error('Error storing 2FA secret:', err.message);
+            if (callback) callback(err);
+        } else {
+            console.log(`2FA secret set for user ID: ${userId}`);
+            if (callback) callback(null);
+        }
+    });
+}
+
+function getTwoFactorSecret(userId, callback) {
+    const query = `SELECT sfa_sec_encrypted FROM users WHERE id = ?`;
+    db.get(query, [userId], (err, row) => {
+        if (err) {
+            console.error('Error retrieving 2FA secret:', err.message);
+            return callback(err, null);
+        }
+
+        if (!row || !row.sfa_sec_encrypted) {
+            console.info(`No 2FA secret found for user ID: ${userId}`);
+            return callback(null, null);
+        }
+
+        try {
+            const decryptedSecret = decrypt(row.sfa_sec_encrypted);
+            callback(null, decryptedSecret);
+        } catch (error) {
+            console.error('Error decrypting 2FA secret:', error.message);
+            callback(error, null);
+        }
+    });
+}
+
+function disableTwoFactor(userId, callback) {
+    const query = `UPDATE users SET sfa_enabled = 0, sfa_sec_encrypted = NULL WHERE id = ?`;
+    db.run(query, [userId], function (err) {
+        if (err) {
+            console.error('Error disabling 2FA for user:', err.message);
+            if (callback) callback(err);
+        } else {
+            console.log(`2FA disabled for user ID: ${userId}`);
+            if (callback) callback(null);
+        }
+    });
+}
+
+// check db health
+function checkDatabaseHealth() {
+    db.get('SELECT 1;', (err) => {
+        if (err) {
+            console.error('Database health check failed:', err.message);
+            process.exit(1);
+        }
+        console.log('Database health check passed.');
+    });
+}
+checkDatabaseHealth();
+
 // Export the function
 module.exports = {
     db,
@@ -511,4 +621,8 @@ module.exports = {
     createUserWithImage,
     updateUserImage,
     logAuditAction,
+    initializeDatabase,
+    setTwoFactorSecret,
+    getTwoFactorSecret,
+    disableTwoFactor,
 };

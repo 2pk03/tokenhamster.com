@@ -4,13 +4,14 @@ require('dotenv').config();
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const { db, getUserByGoogleId, createUserWithImage, updateUserImage, logAuditAction } = require('../../../database');
+const { db, getUserByGoogleId, createUserWithImage, updateUserImage, logAuditAction, getTwoFactorSecret } = require('../../../database');
 const axios = require('axios');
 const fs = require('fs');
 const authenticateToken = require('../../../middleware/authenticateToken');
 const { trackActiveUsers, getActiveUsers } = require('../../../middleware/countUsers');
 // const { passport, loadStrategies } = require('../../../middleware/oauthprovider');
 const { OAuth2Client } = require('google-auth-library');
+const { authenticator } = require('otplib');
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID);
 
@@ -57,11 +58,9 @@ router.get(
 );
 */
 
-// Public Routes
-
-// Google Login OAuth2
+// Google Oauth validaiting route
 router.post('/google/validate', async (req, res) => {
-  const { idToken } = req.body;
+  const { idToken, otp } = req.body;
 
   try {
     // Verify ID token
@@ -69,6 +68,9 @@ router.post('/google/validate', async (req, res) => {
       idToken,
       audience: process.env.GOOGLE_CLIENT_ID,
     });
+
+    console.log("Received ID Token:", idToken); // DEBUG
+    console.log("Expected Audience:", process.env.GOOGLE_CLIENT_ID); // DEBUG
 
     const payload = ticket.getPayload();
     const { sub: googleId, email, name, picture } = payload;
@@ -88,7 +90,6 @@ router.post('/google/validate', async (req, res) => {
     let userId;
     if (!user) {
       console.log('Creating a new user...');
-      // Create a new user with a default portfolio
       const newUser = await new Promise((resolve, reject) => {
         createUserWithImage({ email, googleId, name, imageBuffer }, (err, createdUser) => {
           if (err) reject(err);
@@ -134,15 +135,13 @@ router.post('/google/validate', async (req, res) => {
         });
       });
 
-      // Log account and portfolio reactivation
+      // Log reactivation
       logAuditAction(
         userId,
         null,
         'REACTIVATE_ACCOUNT',
         null,
-        JSON.stringify({
-          message: 'User account and portfolios reactivated via Google OAuth.',
-        }),
+        JSON.stringify({ message: 'User account reactivated.' }),
         (auditErr) => {
           if (auditErr) console.warn('Failed to log account reactivation audit:', auditErr.message);
         }
@@ -158,6 +157,27 @@ router.post('/google/validate', async (req, res) => {
           else resolve();
         });
       });
+
+      // Check if 2FA is enabled
+      if (user.sfa_enabled) {
+        // Fetch 2FA secret
+        const secret = await new Promise((resolve, reject) => {
+          getTwoFactorSecret(userId, (err, secret) => {
+            if (err || !secret) reject(new Error('No valid 2FA secret found.'));
+            else resolve(secret);
+          });
+        });
+
+        if (!otp) {
+          return res.status(401).json({ error: 'Two-Factor Authentication required' });
+        }
+
+        // Validate OTP
+        const isValidOtp = authenticator.verify({ token: otp, secret });
+        if (!isValidOtp) {
+          return res.status(401).json({ error: 'Invalid OTP' });
+        }
+      }
     }
 
     // Generate JWT token
@@ -168,6 +188,7 @@ router.post('/google/validate', async (req, res) => {
     res.status(401).json({ error: 'Invalid Google ID token' });
   }
 });
+
 
 /* for later 
 router.post('/register', async (req, res) => {
@@ -190,6 +211,7 @@ router.post('/register', async (req, res) => {
 });
 */
 
+/* deprecated since we use oauth only 
 router.post('/login', async (req, res) => {
   const { username, password } = req.body;
 
@@ -215,8 +237,6 @@ router.post('/login', async (req, res) => {
 
       const token = jwt.sign({ id: user.id, username: user.username }, SECRET_KEY, { expiresIn: '1h' });
       console.log(`Token successfully generated for user: ${username}`);
-
-      // Update Vuex-like auth state
       updateAuthState(token, user);
 
       res.json({ token });
@@ -227,6 +247,7 @@ router.post('/login', async (req, res) => {
     }
   });
 });
+*/
 
 // Protected Routes
 router.post('/refresh-token', authenticateToken, (req, res) => {
