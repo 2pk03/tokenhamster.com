@@ -19,13 +19,13 @@
             @click="toggleDropdown" />
           <ul class="dropdown-content" ref="dropdown" v-show="isDropdownOpen">
             <li>
-              <router-link to="/profile" class="menu-item">
-                <span class="menu-icon">&gt;</span> Profile
+              <router-link to="/account" class="menu-item">
+                <span class="menu-icon">&gt;</span> Account
               </router-link>
             </li>
             <li>
-              <router-link to="/account" class="menu-item">
-                <span class="menu-icon">&gt;</span> Account
+              <router-link to="/profile" class="menu-item">
+                <span class="menu-icon">&gt;</span> Profile
               </router-link>
             </li>
             <li>

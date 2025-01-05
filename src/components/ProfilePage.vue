@@ -5,7 +5,7 @@
         <img v-if="profilePictureUrl" :src="profilePictureUrl" alt="Profile Picture" class="profile-picture" />
         <p v-else>Loading image...</p>
       </div>
-      <div class="action-card">
+      <div class="audit-log">
         <p><strong>Username:</strong> {{ profile.username }}</p>
         <p><strong>Email:</strong> {{ profile.email }}</p>
         <p><strong>User ID:</strong> {{ profile.id }}</p>
@@ -13,8 +13,8 @@
     </div>
 
     <div class="default-box">
-      <div class="action-card">
-        <h3>Portfolio Backup and Restore</h3>
+      <div class="audit-log">
+        <h2>Portfolio Backup and Restore</h2>
         <button @click="downloadPortfolio">Download</button>
         <input type="file" ref="fileInput" @change="handleFileSelect" accept=".csv" hidden />
         <button @click="triggerFileUpload" class="button-imp">Upload</button>
@@ -24,15 +24,15 @@
         <h4>Selected File</h4>
         <p>{{ fileName }}</p>
         <button @click="confirmUpload" class="button-imp">Import</button>
-        <button @click="cancelUpload" class="button-imp">Cancel</button>
+        <button @click="cancelUpload">Cancel</button>
         <p class="warning-message">
           Are you sure? This will overwrite your existing portfolio, if any.
         </p>
       </div>
     </div>
 
-    <div class="default-box">
-      <h3>Audit Log</h3>
+    <div class="default-box action-card">
+      <h2>Audit Log</h2>
       <div class="audit-log">
         <table class="portfolio-table">
           <thead>
@@ -43,7 +43,7 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="log in auditLogs" :key="log.timestamp">
+            <tr v-for="(log, index) in auditLogs" :key="`${log.timestamp}-${index}`">
               <td>{{ log.action }}</td>
               <td>{{ log.timestamp ? formatDate(log.timestamp) : 'N/A' }}</td>
               <td>
@@ -60,9 +60,12 @@
 
         </table>
         <div class="pagination">
-          <button @click="prevPage" :disabled="currentPage === 1">&lt; Previous</button>
+          <button @click="previousPage" :disabled="currentPage === 1">Previous</button>
           <span>Page {{ currentPage }}</span>
           <button @click="nextPage">Next &gt; </button>
+        </div>
+        <div class="center-content">
+          <button class="button-large" @click="downloadAuditLog">Download Audit Log</button>
         </div>
       </div>
     </div>
@@ -93,6 +96,19 @@ export default {
     this.fetchProfile();
     this.fetchAuditLogs();
     document.addEventListener('keydown', this.handleEscKey);
+  },
+  computed: {
+    paginatedLogs() {
+      const start = (this.currentPage - 1) * this.rowsPerPage;
+      const end = this.currentPage * this.rowsPerPage;
+      return this.auditLogs.slice(start, end);
+    },
+    hasNextPage() {
+      return this.currentPage * this.rowsPerPage < this.auditLogs.length;
+    },
+    hasPreviousPage() {
+      return this.currentPage > 1;
+    },
   },
 
   methods: {
@@ -178,15 +194,45 @@ export default {
 
     async fetchAuditLogs() {
       try {
-        const response = await api.get('/user/portfolio/audit/logs', {
+        const response = await api.get('/user/profile/audit/logs', {
           params: { page: this.currentPage, limit: this.rowsPerPage },
         });
-        this.auditLogs = response.data;
+
+        if (response.data && Array.isArray(response.data)) {
+          this.auditLogs = response.data;
+        } else {
+          console.error('Invalid response data for audit logs:', response.data);
+          this.auditLogs = [];
+        }
       } catch (error) {
         console.error('Error fetching audit logs:', error.message);
       }
     },
-
+    nextPage() {
+      this.currentPage++;
+      this.fetchAuditLogs();
+    },
+    previousPage() {
+      if (this.currentPage > 1) {
+        this.currentPage--;
+        this.fetchAuditLogs();
+      }
+    },
+    // download audit logs
+    async downloadAuditLog() {
+    try {
+      const response = await api.get('/user/profile/audit/export', { responseType: 'blob' });
+      const url = URL.createObjectURL(response.data);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'audit_log.csv';
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error downloading audit log:', error.message);
+      alert('Failed to download audit log. Please try again.');
+    }
+  },
     // make date/time more readable
     getFormattedDetails(log) {
       try {
@@ -200,8 +246,6 @@ export default {
     formatAuditDetails(action, details) {
       // Handle missing or invalid details
       if (!details) return { description: 'N/A', list: [] };
-
-      console.log('Formatting audit details:', { action, details }); // DEBUG
 
       let parsedDetails;
       try {

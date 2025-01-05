@@ -4,7 +4,7 @@ require('dotenv').config();
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const { db, getUserByGoogleId, createUserWithImage, updateUserImage, logAuditAction, getTwoFactorSecret } = require('../../../database');
+const { db, getUserByGoogleId, createUserWithImage, updateUserImage, logAuditAction, getTwoFactorSecret, getTwoFactorRecoverySeed, decrypt, disableTwoFactor } = require('../../../database');
 const axios = require('axios');
 const fs = require('fs');
 const authenticateToken = require('../../../middleware/authenticateToken');
@@ -58,9 +58,8 @@ router.get(
 );
 */
 
-// Google Oauth validaiting route
 router.post('/google/validate', async (req, res) => {
-  const { idToken, otp } = req.body;
+  const { idToken, otp, recoveryPhrase } = req.body;
 
   try {
     // Verify ID token
@@ -68,9 +67,6 @@ router.post('/google/validate', async (req, res) => {
       idToken,
       audience: process.env.GOOGLE_CLIENT_ID,
     });
-
-    console.log("Received ID Token:", idToken); // DEBUG
-    console.log("Expected Audience:", process.env.GOOGLE_CLIENT_ID); // DEBUG
 
     const payload = ticket.getPayload();
     const { sub: googleId, email, name, picture } = payload;
@@ -89,7 +85,6 @@ router.post('/google/validate', async (req, res) => {
 
     let userId;
     if (!user) {
-      console.log('Creating a new user...');
       const newUser = await new Promise((resolve, reject) => {
         createUserWithImage({ email, googleId, name, imageBuffer }, (err, createdUser) => {
           if (err) reject(err);
@@ -110,7 +105,6 @@ router.post('/google/validate', async (req, res) => {
         }
       );
     } else if (user.deleted === 1) {
-      console.log('Reactivating deleted user...');
       userId = user.id;
 
       // Reactivate user
@@ -147,10 +141,9 @@ router.post('/google/validate', async (req, res) => {
         }
       );
     } else {
-      console.log('User already exists. Updating profile picture...');
       userId = user.id;
 
-      // Optionally update profile picture
+      // Update profile picture
       await new Promise((resolve, reject) => {
         updateUserImage(googleId, imageBuffer, (err) => {
           if (err) reject(err);
@@ -160,22 +153,43 @@ router.post('/google/validate', async (req, res) => {
 
       // Check if 2FA is enabled
       if (user.sfa_enabled) {
-        // Fetch 2FA secret
-        const secret = await new Promise((resolve, reject) => {
-          getTwoFactorSecret(userId, (err, secret) => {
-            if (err || !secret) reject(new Error('No valid 2FA secret found.'));
-            else resolve(secret);
+        if (otp) {
+          // Validate OTP
+          const secret = await new Promise((resolve, reject) => {
+            getTwoFactorSecret(userId, (err, secret) => {
+              if (err || !secret) reject(new Error('No valid 2FA secret found.'));
+              else resolve(secret);
+            });
           });
-        });
 
-        if (!otp) {
+          const isValidOtp = authenticator.verify({ token: otp, secret });
+          if (!isValidOtp) {
+            return res.status(401).json({ error: 'Invalid OTP' });
+          }
+        } else if (recoveryPhrase) {
+          // Validate Recovery Phrase
+          const decryptedSeed = await new Promise((resolve, reject) => {
+            getTwoFactorRecoverySeed(userId, (err, seed) => {
+              if (err || !seed) reject(new Error('No valid recovery phrase found.'));
+              else resolve(decrypt(seed));
+            });
+          });
+
+          if (decryptedSeed !== recoveryPhrase) {
+            return res.status(401).json({ error: 'Invalid recovery phrase' });
+          }
+
+          // Disable 2FA
+          await new Promise((resolve, reject) => {
+            disableTwoFactor(userId, (err) => {
+              if (err) reject(err);
+              else resolve();
+            });
+          });
+
+          console.log(`2FA disabled for user ID: ${userId} using recovery phrase.`);
+        } else {
           return res.status(401).json({ error: 'Two-Factor Authentication required' });
-        }
-
-        // Validate OTP
-        const isValidOtp = authenticator.verify({ token: otp, secret });
-        if (!isValidOtp) {
-          return res.status(401).json({ error: 'Invalid OTP' });
         }
       }
     }
@@ -188,6 +202,7 @@ router.post('/google/validate', async (req, res) => {
     res.status(401).json({ error: 'Invalid Google ID token' });
   }
 });
+
 
 
 /* for later 
@@ -257,12 +272,12 @@ router.post('/refresh-token', authenticateToken, (req, res) => {
   const timeLeft = tokenExp - now;
 
   if (timeLeft > 5 * 60) {
-    console.log('Token refresh not needed. Time left (seconds):', timeLeft);
+    console.log('Token refresh not needed. Time left (seconds):', timeLeft); // DEBUG
     return res.status(400).json({ message: 'Token refresh not needed yet.' });
   }
 
   const newToken = jwt.sign({ id }, SECRET_KEY, { expiresIn: '15m' });
-  console.log('Token refreshed for user ID:', id);
+  console.log('Token refreshed for user ID:', id); // DEBUG
 
   // Update Vuex-like auth state
   updateAuthState(newToken);
@@ -281,7 +296,7 @@ router.get('/active-users', authenticateToken, (req, res) => {
 });
 
 router.post('/logout', (req, res) => {
-  console.log('User logged out.');
+  console.log('User logged out.'); // DEBUG
   clearAuthState();
   res.status(200).json({ message: 'Logged out successfully.' });
 });

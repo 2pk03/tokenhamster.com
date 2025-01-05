@@ -193,6 +193,35 @@ button {
     margin: 10px; 
 }
 
+.button-small {
+    width: auto;
+    height: auto; 
+    background-color: white;
+    color: darkblue;
+    border: 1px solid darkblue;
+    padding: var(--spacing-small) var(--spacing-base);
+    border-radius: 0; 
+    cursor: pointer;
+    font-size: var(--font-size-base);
+    transition: background-color 0.3s ease;
+    margin: 10px; 
+}
+
+.button-small-imp {
+    width: auto;
+    height: auto; 
+    background-color: white;
+    color: orangered;
+    border: 1px solid orangered;
+    padding: var(--spacing-small) var(--spacing-base);
+    border-radius: 0; 
+    cursor: pointer;
+    font-size: var(--font-size-base);
+    transition: background-color 0.3s ease;
+    margin: 10px; 
+}
+
+
 .button-large {
     width: 350px;
     height: auto; 
@@ -229,6 +258,7 @@ button:hover,
 }
 
 .button-imp:hover,
+.button-small-imp:hover,
 .button-large-imp:hover {
     background-color: orangered;
     color: white;
@@ -1051,7 +1081,6 @@ button-container {
     padding: var(--spacing-large);
     border-radius: var(--border-radius-small);
     background-color: #fff5f5;
-    text-align: center;
     margin-top: var(--spacing-large);
 }
 
@@ -1359,3 +1388,65 @@ button-container {
     color: orangered;
     margin-top: 10px;
   }
+
+  /* mnenomic words */
+  .seed-container {
+    margin-top: 20px;
+    padding: 10px;
+    background-color: #f9f9f9;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+.recovery-seed {
+    font-family: monospace;
+    font-size: 1.2em;
+    white-space: pre-wrap;
+    margin: 10px 0;
+    word-break: break-word;
+}
+
+h2 {
+    gap: 10px;
+    font-size: 25px;
+    font-weight: bold;
+}
+
+.status-indicator {
+    font-size: 25px;
+    font-weight: bold;
+}
+
+.status-enabled {
+    color: green;
+}
+
+.status-disabled {
+    color: orangered;
+}
+
+.overview-section {
+    margin-bottom: 20px;
+  }
+  
+  .overview-metrics {
+    display: flex;
+    gap: 15px;
+    font-size: 20px;
+  }
+  
+  .win {
+    color: green;
+    font-weight: bold;
+  }
+  
+  .loss {
+    color: red;
+    font-weight: bold;
+  }
+
+  .overview-invest {
+    color: black;
+    font-weight: bold;
+  }
+  

@@ -120,4 +120,92 @@ router.delete('/delete', authenticateToken, (req, res) => {
     });
 });
 
+// audit logs
+router.get('/audit/logs', (req, res) => {
+    const userId = req.user.id;
+    const { page = 1, limit = 10 } = req.query;
+    const offset = (page - 1) * limit;
+
+    const query = `
+        SELECT action, crypto_symbol, timestamp, details
+        FROM audit_log
+        WHERE user_id = ?
+        ORDER BY timestamp DESC
+        LIMIT ? OFFSET ?
+    `;
+
+    db.all(query, [userId, parseInt(limit), parseInt(offset)], (err, rows) => {
+        if (err) {
+            console.error('Error fetching audit logs:', err.message);
+            return res.status(500).json({ error: 'Internal server error' });
+        }
+
+        // Check if there's an ADD_PORTFOLIO log
+        const hasPortfolioCreationLog = rows.some(row => row.action === 'ADD_PORTFOLIO');
+
+        if (!hasPortfolioCreationLog) {
+            // Fetch portfolio creation time from the database
+            db.get(
+                `SELECT created_at AS timestamp FROM portfolios WHERE user_id = ? AND name = 'Default Portfolio'`,
+                [userId],
+                (portfolioErr, portfolio) => {
+                    if (portfolioErr) {
+                        console.error('Error fetching portfolio creation time:', portfolioErr.message);
+                        return res.json(rows); // Return existing rows without adding a log
+                    }
+
+                    if (portfolio) {
+                        rows.unshift({
+                            action: 'ADD_PORTFOLIO',
+                            crypto_symbol: null,
+                            timestamp: portfolio.timestamp || null,
+                            details: null,
+                        });
+                    }
+
+                    res.json(rows);
+                }
+            );
+        } else {
+            res.json(rows);
+        }
+    });
+});
+
+// Export audit log
+router.get('/audit/export', authenticateToken, (req, res) => {
+    const userId = req.user.id;
+
+    const query = `
+        SELECT action, crypto_symbol, timestamp, details
+        FROM audit_log
+        WHERE user_id = ?
+        ORDER BY timestamp DESC
+    `;
+
+    db.all(query, [userId], (err, rows) => {
+        if (err) {
+            console.error('Error fetching audit log for export:', err.message);
+            return res.status(500).json({ error: 'Failed to fetch audit log.' });
+        }
+
+        if (!rows || rows.length === 0) {
+            return res.status(404).json({ error: 'No audit logs found.' });
+        }
+
+        // Convert rows to CSV
+        const csvHeaders = 'action,crypto_symbol,timestamp,details\n';
+        const csvRows = rows
+            .map(row => `${row.action},${row.crypto_symbol || 'N/A'},${row.timestamp},${row.details || 'N/A'}`)
+            .join('\n');
+
+        const csvContent = csvHeaders + csvRows;
+
+        // Send CSV as attachment
+        res.setHeader('Content-Type', 'text/csv');
+        res.setHeader('Content-Disposition', 'attachment; filename="audit_log.csv"');
+        res.send(csvContent);
+    });
+});
+
 module.exports = router;

@@ -6,6 +6,7 @@ const crypto = require('crypto');
 const ENV_PATH = '.env';
 const IV_LENGTH = 16;
 const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY;
+const bip39 = require('bip39');
 
 // encryption
 if (!process.env.ENCRYPTION_KEY) {
@@ -55,12 +56,13 @@ const db = new sqlite3.Database('./tracker.db', (err) => {
 // Initialize tables with optimizations
 function initializeDatabase() {
     db.serialize(() => {
-        // Users table: Updated for OAuth support
+        // Users table: 2FA and OAuth support
         db.run(`
             CREATE TABLE IF NOT EXISTS users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 sfa_sec_encrypted TEXT,
                 sfa_enabled INTEGER DEFAULT 0,
+                sfa_seed_encrypted TEXT,
                 username TEXT NOT NULL,
                 email TEXT UNIQUE NOT NULL,
                 password TEXT DEFAULT NULL,
@@ -68,6 +70,16 @@ function initializeDatabase() {
                 oauthId TEXT UNIQUE DEFAULT NULL,
                 profilePicture TEXT DEFAULT NULL,
                 deleted INTEGER DEFAULT 0
+            )
+        `);
+
+        // Create the temporary_2fa table for storing temporary 2FA setup data
+        db.run(`
+            CREATE TABLE IF NOT EXISTS temporary_2fa (
+                user_id INTEGER PRIMARY KEY,
+                secret TEXT NOT NULL,
+                recovery_phrase TEXT NOT NULL,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
             )
         `);
 
@@ -492,8 +504,8 @@ function logAuditAction(userId, portfolioId = null, action, cryptoSymbol = null,
         VALUES (?, ?, ?, ?, ?)
     `;
 
-    const formattedDetails = typeof details === "object" && details !== null 
-        ? JSON.stringify(details) 
+    const formattedDetails = typeof details === "object" && details !== null
+        ? JSON.stringify(details)
         : details || "{}";
 
     db.run(query, [userId, portfolioId, action, cryptoSymbol, formattedDetails], (err) => {
@@ -541,19 +553,6 @@ function isUserActive(userId, callback) {
 }
 
 //helepr functions for 2FA
-function setTwoFactorSecret(userId, secret, callback) {
-    const encryptedSecret = encrypt(secret);
-    const query = `UPDATE users SET sfa_sec_encrypted = ?, sfa_enabled = 1 WHERE id = ?`;
-    db.run(query, [encryptedSecret, userId], function (err) {
-        if (err) {
-            console.error('Error storing 2FA secret:', err.message);
-            if (callback) callback(err);
-        } else {
-            console.log(`2FA secret set for user ID: ${userId}`);
-            if (callback) callback(null);
-        }
-    });
-}
 
 function getTwoFactorSecret(userId, callback) {
     const query = `SELECT sfa_sec_encrypted FROM users WHERE id = ?`;
@@ -588,8 +587,101 @@ function disableTwoFactor(userId, callback) {
             console.log(`2FA disabled for user ID: ${userId}`);
             if (callback) callback(null);
         }
+    }); 
+}
+
+function setTemporaryTwoFactorData(userId, secret, recoveryPhrase, callback) {
+    const encryptedSecret = encrypt(secret);
+    const encryptedRecoveryPhrase = encrypt(recoveryPhrase);
+
+    const query = `
+        INSERT INTO temporary_2fa (user_id, secret, recovery_phrase) 
+        VALUES (?, ?, ?) 
+        ON CONFLICT(user_id) 
+        DO UPDATE SET secret = excluded.secret, recovery_phrase = excluded.recovery_phrase`;
+
+    db.run(query, [userId, encryptedSecret, encryptedRecoveryPhrase], (err) => {
+        if (err) {
+            console.error('Error storing temporary 2FA data:', err.message);
+            return callback(err);
+        }
+        console.log(`Temporary 2FA data set for user ID: ${userId}`); //DEBUG
+        callback(null);
     });
 }
+
+
+function getTemporaryTwoFactorData(userId, callback) {
+    const query = `SELECT secret, recovery_phrase FROM temporary_2fa WHERE user_id = ?`;
+    db.get(query, [userId], (err, row) => {
+        if (err) {
+            console.error('Error retrieving temporary 2FA data:', err.message);
+            return callback(err, null);
+        }
+        if (!row || !row.secret || !row.recovery_phrase) {
+            console.warn('Temporary 2FA data is incomplete or missing for user ID:', userId);
+            return callback(new Error('Temporary 2FA data not found or incomplete'), null);
+        }
+        callback(null, row);
+    });
+}
+
+
+function setTwoFactorSecretAndSeed(userId, secret, recoveryPhrase, callback) {
+    const encryptedSecret = encrypt(secret);
+    const encryptedRecoveryPhrase = encrypt(recoveryPhrase);
+
+    // Update the user's 2FA secret and recovery phrase
+    const updateQuery = `UPDATE users SET sfa_sec_encrypted = ?, sfa_seed_encrypted = ?, sfa_enabled = 1 WHERE id = ?`;
+
+    db.run(updateQuery, [encryptedSecret, encryptedRecoveryPhrase, userId], (err) => {
+        if (err) {
+            console.error('Error saving 2FA secret and recovery phrase:', err.message);
+            return callback(err);
+        }
+
+        // After successful activation, delete the temporary 2FA data
+        const deleteTempQuery = `DELETE FROM temporary_2fa WHERE user_id = ?`;
+        db.run(deleteTempQuery, [userId], (tempErr) => {
+            if (tempErr) {
+                console.error('Error deleting temporary 2FA data:', tempErr.message);
+                return callback(tempErr);
+            }
+
+            console.log(`2FA activated and temporary data deleted for user ID: ${userId}`);
+            callback(null);
+        });
+    });
+}
+
+// delete temp table when 2fa is cancelled
+function deleteTemporaryTwoFactorData(userId, callback) {
+    const query = `DELETE FROM temporary_2fa WHERE user_id = ?`;
+    db.run(query, [userId], (err) => {
+        if (err) {
+            console.error(`Error deleting temporary 2FA data for user ID ${userId}:`, err.message);
+            return callback(err);
+        }
+        console.log(`Temporary 2FA data deleted for user ID: ${userId}`);
+        callback(null);
+    });
+}
+
+function getTwoFactorRecoverySeed(userId, callback) {
+    const query = `SELECT sfa_seed_encrypted FROM users WHERE id = ?`;
+    db.get(query, [userId], (err, row) => {
+        if (err) {
+            console.error(`Error retrieving recovery seed for user ID ${userId}:`, err.message);
+            return callback(err, null);
+        }
+        if (!row || !row.sfa_seed_encrypted) {
+            console.warn(`No recovery seed found for user ID ${userId}`);
+            return callback(new Error('Recovery seed not found'), null);
+        }
+        callback(null, row.sfa_seed_encrypted);
+    });
+}
+
 
 // check db health
 function checkDatabaseHealth() {
@@ -622,7 +714,12 @@ module.exports = {
     updateUserImage,
     logAuditAction,
     initializeDatabase,
-    setTwoFactorSecret,
+    decrypt,
     getTwoFactorSecret,
     disableTwoFactor,
+    setTemporaryTwoFactorData,
+    getTemporaryTwoFactorData,
+    setTwoFactorSecretAndSeed,
+    deleteTemporaryTwoFactorData,
+    getTwoFactorRecoverySeed,
 };

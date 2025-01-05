@@ -21,15 +21,7 @@ async function fetchCryptoPrice(cryptoSymbol, currency = 'USD') {
         const priceData = response.data.RAW[cryptoSymbol]?.[currency] || null;
 
         if (priceData) {
-            console.log(`Price data for ${cryptoSymbol} (${currency}):`, priceData);
-            return {
-                crypto_symbol: cryptoSymbol,
-                currency,
-                price: priceData.PRICE,
-                volume: priceData.VOLUME24HOUR,
-                market_cap: priceData.MKTCAP,
-                timestamp: new Date().toISOString(),
-            };
+            console.log(`Price data for ${cryptoSymbol} (${currency}):`, priceData);            
         }
 
         console.warn(`No price data available for ${cryptoSymbol} (${currency})`);
@@ -55,8 +47,6 @@ function savePolledData({ crypto_symbol, currency, price, timestamp, volume, mar
     db.run(updateCurrentQuery, [crypto_symbol, currency, price], (err) => {
         if (err) {
             console.error(`Error saving to current_prices:`, err.message);
-        } else {
-            console.log(`Updated current_prices for ${crypto_symbol} (${currency})`);
         }
     });
 
@@ -72,8 +62,6 @@ function savePolledData({ crypto_symbol, currency, price, timestamp, volume, mar
     db.run(insertHistoricalQuery, [crypto_symbol, price, volume, market_cap], (err) => {
         if (err) {
             console.error(`Error saving to historical_data:`, err.message);
-        } else {
-            console.log(`Inserted into historical_data for ${crypto_symbol}`);
         }
     });
 }
