@@ -2,9 +2,9 @@
   <div class="page-container">
     <div class="default-box">
       <div class="profile-section">
-        <img v-if="profilePictureUrl" :src="profilePictureUrl" alt="Profile Picture" class="profile-picture" />
-        <p v-else>Loading image...</p>
-      </div>
+    <img v-if="profilePictureUrl" :src="profilePictureUrl" alt="Profile Picture" class="profile-picture" />
+    <p v-else>Loading image...</p>
+  </div>
       <div class="audit-log">
         <p><strong>Username:</strong> {{ profile.username }}</p>
         <p><strong>Email:</strong> {{ profile.email }}</p>
@@ -74,6 +74,7 @@
 
 <script>
 import api from "@/api";
+import { getProfileImageUrl } from '@/api';
 
 export default {
   data() {
@@ -123,14 +124,19 @@ export default {
         console.error("Error fetching profile data:", error);
       }
     },
-    async fetchProfilePicture(url) {
+    async fetchProfilePicture() {
       try {
-        const response = await api.get(url, { responseType: "blob" });
+        // Use getProfileImageUrl to construct the URL
+        const url = getProfileImageUrl(this.userId);
+        const response = await api.get(url, { responseType: 'blob' });
         this.profilePictureUrl = URL.createObjectURL(response.data);
       } catch (error) {
-        console.error("Error fetching profile picture:", error);
+        console.error('Error fetching profile picture:', error);
       }
     },
+    created() {
+    this.fetchProfilePicture();
+  },
 
     // portfolio actions
     async downloadPortfolio() {

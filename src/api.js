@@ -30,5 +30,10 @@ api.interceptors.response.use(
   }
 );
 
-export default api;
+// Utility method to get profile image URL
+export function getProfileImageUrl(userId) {
+  const apiBaseUrl = process.env.VUE_APP_API_BASE_URL || 'http://localhost:4467/api';
+  return `${apiBaseUrl}/user/profile/image/${userId}`;
+}
 
+export default api;
