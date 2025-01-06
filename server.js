@@ -11,6 +11,7 @@ const { initializeDatabase, updateSupportedTokens } = require('./database');
 
 const app = express();
 const PORT = process.env.PORT || 4467;
+app.set('trust proxy', true);
 
 const CRYPTOCOMPARE_BASE_URL = 'https://min-api.cryptocompare.com/data';
 
@@ -87,9 +88,9 @@ async function initializeApp() {
         allowedHeaders: ['Authorization', 'Content-Type'],
         credentials: true,
     };
-    
+
     app.use(cors(corsOptions));
-    
+
 
     // Uncomment if rate limiting is required
     /*
