@@ -165,7 +165,7 @@ function initializeDatabase() {
                 currency TEXT NOT NULL,
                 price REAL NOT NULL,
                 last_updated DATETIME NOT NULL,
-                UNIQUE(crypto_symbol, currency) -- Ensures one record per symbol and currency
+                UNIQUE(crypto_symbol, currency)
             )
         `);
 
@@ -180,7 +180,8 @@ function initializeDatabase() {
                 date DATE NOT NULL,
                 avg_price REAL,
                 total_volume REAL,
-                market_cap REAL
+                market_cap REAL,
+                UNIQUE (crypto_symbol, date)
             )
         `);
 
