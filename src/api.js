@@ -6,6 +6,8 @@ const api = axios.create({
   baseURL: process.env.VUE_APP_API_BASE_URL || 'http://localhost:4467/api', // Fallback for development
 });
 
+console.log('API Base URL:', process.env.VUE_APP_API_BASE_URL || 'http://localhost:4467/api');
+
 // Add token to requests if available
 api.interceptors.request.use(
   (config) => {
