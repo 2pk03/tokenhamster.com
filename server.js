@@ -79,7 +79,7 @@ async function initializeApp() {
     const corsOptions = {
         origin: function (origin, callback) {
             console.log(`[DEBUG] Incoming origin: ${origin}`);
-            const allowedOrigins = ['https://www.tokenhamster.com', 'http://localhost:8080'];
+            const allowedOrigins = ['https://www.tokenhamster.com', 'https://tokenhamster.com', 'http://localhost:8080'];
             if (!origin || allowedOrigins.includes(origin)) {
                 callback(null, true);
             } else {
