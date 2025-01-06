@@ -682,6 +682,32 @@ function getTwoFactorRecoverySeed(userId, callback) {
     });
 }
 
+function updateAggregatedData(cryptoSymbol, callback) {
+    const query = `
+        INSERT INTO aggregated_data (crypto_symbol, date, avg_price, total_volume, market_cap)
+        SELECT
+            crypto_symbol,
+            date(date_time) AS day,
+            AVG(price_usd) AS avg_price,
+            SUM(volume) AS total_volume,
+            AVG(market_cap) AS avg_market_cap
+        FROM historical_data
+        WHERE crypto_symbol = ?
+        GROUP BY crypto_symbol, day
+        ON CONFLICT (crypto_symbol, date) DO UPDATE SET
+            avg_price = excluded.avg_price,
+            total_volume = excluded.total_volume,
+            market_cap = excluded.market_cap;
+    `;
+    db.run(query, [cryptoSymbol], (err) => {
+        if (err) {
+            console.error(`Error updating aggregated data for ${cryptoSymbol}:`, err.message);
+        } else {
+            console.log(`Aggregated data updated for ${cryptoSymbol}`);
+        }
+        if (callback) callback(err);
+    });
+}
 
 // check db health
 function checkDatabaseHealth() {
@@ -722,4 +748,5 @@ module.exports = {
     setTwoFactorSecretAndSeed,
     deleteTemporaryTwoFactorData,
     getTwoFactorRecoverySeed,
+    updateAggregatedData,
 };

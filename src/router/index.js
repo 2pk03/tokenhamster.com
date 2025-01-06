@@ -42,7 +42,7 @@ router.beforeEach((to, from, next) => {
 
     // Redirect unauthenticated users trying to access protected routes
     if (to.meta.requiresAuth && !isAuthenticated) {
-        console.log('Access denied: Redirecting to login');
+        // console.log('Access denied: Redirecting to login'); //DEBUG
         return next('/login');
     }
 

@@ -1,7 +1,7 @@
 // services/pollingService.js
 
 const axios = require('axios');
-const { db } = require('../database');
+const { db, updateAggregatedData } = require('../database');
 const { API_KEY_CRYPTOCOMPARE, CRYPTOCOMPARE_BASE_URL } = require('../config');
 
 const pollingIntervals = {};
@@ -21,7 +21,15 @@ async function fetchCryptoPrice(cryptoSymbol, currency = 'USD') {
         const priceData = response.data.RAW[cryptoSymbol]?.[currency] || null;
 
         if (priceData) {
-            console.log(`Price data for ${cryptoSymbol} (${currency}):`, priceData);            
+            console.log(`Price data for ${cryptoSymbol} (${currency}):`, priceData);
+            return {
+                crypto_symbol: cryptoSymbol,
+                currency,
+                price: priceData.PRICE,
+                volume: priceData.VOLUME24HOUR,
+                market_cap: priceData.MKTCAP,
+                timestamp: new Date().toISOString(),
+            };
         }
 
         console.warn(`No price data available for ${cryptoSymbol} (${currency})`);
@@ -47,6 +55,8 @@ function savePolledData({ crypto_symbol, currency, price, timestamp, volume, mar
     db.run(updateCurrentQuery, [crypto_symbol, currency, price], (err) => {
         if (err) {
             console.error(`Error saving to current_prices:`, err.message);
+        } else {
+            console.log(`Updated current_prices for ${crypto_symbol} (${currency})`);
         }
     });
 
@@ -62,6 +72,15 @@ function savePolledData({ crypto_symbol, currency, price, timestamp, volume, mar
     db.run(insertHistoricalQuery, [crypto_symbol, price, volume, market_cap], (err) => {
         if (err) {
             console.error(`Error saving to historical_data:`, err.message);
+        } else {
+            console.log(`Inserted into historical_data for ${crypto_symbol}`);
+
+            // Update aggregated data for the symbol
+            updateAggregatedData(crypto_symbol, (err) => {
+                if (err) {
+                    console.warn(`Failed to update aggregated data for ${crypto_symbol}`);
+                }
+            });
         }
     });
 }
@@ -109,8 +128,14 @@ async function pollPricesForSymbolsAndCurrencies() {
         for (const { crypto_symbol, currency } of uniquePairs) {
             const data = await fetchCryptoPrice(crypto_symbol, currency);
             if (data) {
-                // Enhanced to include market_cap, volume, etc.
                 savePolledData(data);
+
+                // Update aggregated data for the symbol
+                updateAggregatedData(crypto_symbol, (err) => {
+                    if (err) {
+                        console.warn(`Failed to update aggregated data for ${crypto_symbol}`);
+                    }
+                });
             } else {
                 console.warn(`No valid data received for ${crypto_symbol} (${currency})`);
             }

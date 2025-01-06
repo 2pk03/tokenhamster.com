@@ -1,28 +1,19 @@
 <template>
-
   <div class="content-container">
     <!-- Left Section: Graphs -->
     <div class="graphs-section">
-    <h2>Price Trends</h2>
+      <h2>Price Trends</h2>
 
-    <!-- Historical Graph -->
-    <div class="graph-container">
-      <apexchart
-        type="line"
-        :options="historicalChartOptions"
-        :series="historicalChartSeries"
-      ></apexchart>
-    </div>
+      <!-- Historical Graph -->
+      <div class="graph-container">
+        <apexchart type="line" :options="historicalChartOptions" :series="historicalChartSeries"></apexchart>
+      </div>
 
-    <!-- Daily Graph -->
-    <div class="graph-container">
-      <apexchart
-        type="bar"
-        :options="dailyChartOptions"
-        :series="dailyChartSeries"
-      ></apexchart>
+      <!-- Daily Graph -->
+      <div class="graph-container">
+        <apexchart type="bar" :options="dailyChartOptions" :series="dailyChartSeries"></apexchart>
+      </div>
     </div>
-  </div>
 
     <!-- Right Section: Portfolio Table -->
     <div class="portfolio-section">
@@ -33,11 +24,11 @@
         </span>
       </h2>
       <div class="overview-section">
-        <h3>Overview</h3>
         <div class="overview-metrics">
           <span class="overview-invest">Total Invest:</span>{{ formatNumber(totalInvest) }}
-          <span class="overview-invest">Performance:</span><span class="overview-performance" :class="percentageChange >= 0 ? 'win' : 'loss'"> {{
-            percentageChange.toFixed(2) }}%</span>
+          <span class="overview-invest">Performance:</span><span class="overview-performance"
+            :class="percentageChange >= 0 ? 'win' : 'loss'"> {{
+              percentageChange.toFixed(2) }}%</span>
         </div>
       </div>
       <table class="portfolio-table">
@@ -112,20 +103,35 @@ export default {
       purchasePrice: null,
       purchaseCurrency: "USD",
       pollingInterval: null,
+
       // ApexChart options and series
       historicalChartOptions: {
         chart: {
           type: "line",
           zoom: { enabled: true },
+          toolbar: { show: false }, // Removes unnecessary toolbar
+          offsetX: 10, // Adds padding to prevent clipping
+          offsetY: 10,
         },
         xaxis: {
           type: "datetime",
-          title: { text: "Date" },
+          title: {
+            text: "Date",
+            style: { fontSize: "12px", color: "#333" }, // Ensure title is visible
+          },
+          labels: {
+            rotate: -45, // Rotates labels to save space
+            style: { fontSize: "10px", color: "#333" }, // Adjust label font
+          },
         },
         yaxis: {
-          title: { text: "Price (USD)" },
+          title: {
+            text: "Price (USD)",
+            style: { fontSize: "12px", color: "#333" },
+          },
           labels: {
             formatter: (value) => `$${value.toFixed(2)}`,
+            style: { fontSize: "10px", color: "#333" },
           },
         },
         tooltip: {
@@ -134,20 +140,35 @@ export default {
         },
       },
       historicalChartSeries: [
-        { name: "Price", data: [] },
+        { name: "Price", data: [] }, // Data to be populated dynamically
       ],
+
       dailyChartOptions: {
         chart: {
           type: "bar",
+          toolbar: { show: false },
+          offsetX: 10,
+          offsetY: 10,
         },
         xaxis: {
           type: "datetime",
-          title: { text: "Date" },
+          title: {
+            text: "Date",
+            style: { fontSize: "12px", color: "#333" },
+          },
+          labels: {
+            rotate: -45,
+            style: { fontSize: "10px", color: "#333" },
+          },
         },
         yaxis: {
-          title: { text: "Volume (USD)" },
+          title: {
+            text: "Volume (USD)",
+            style: { fontSize: "12px", color: "#333" },
+          },
           labels: {
             formatter: (value) => `$${value.toFixed(2)}`,
+            style: { fontSize: "10px", color: "#333" },
           },
         },
         tooltip: {
@@ -156,7 +177,7 @@ export default {
         },
       },
       dailyChartSeries: [
-        { name: "Daily Volume", data: [] },
+        { name: "Daily Volume", data: [] }, // Data to be populated dynamically
       ],
     };
   },
@@ -235,40 +256,40 @@ export default {
     },
     // Fetch historical data
     async fetchHistoricalData(symbol) {
-  try {
-    const response = await api.get(`/functional/historical/fetch`, {
-      params: { symbol },
-    });
-    this.historicalChartSeries[0].data = response.data.map((d) => [
-      new Date(d.date_time).getTime(),
-      d.price_usd,
-    ]);
-  } catch (err) {
-    console.error("Failed to fetch historical data:", err.message);
-  }
-},
+      try {
+        const response = await api.get(`/functional/historical/fetch`, {
+          params: { symbol },
+        });
+        this.historicalChartSeries[0].data = response.data.map((d) => [
+          new Date(d.date_time).getTime(),
+          d.price_usd,
+        ]);
+      } catch (err) {
+        console.error("Failed to fetch historical data:", err.message);
+      }
+    },
 
     // Fetch daily prices
     async fetchDailyData(symbol) {
-  try {
-    console.log(`Fetching daily data for: ${symbol}`);
-    const response = await api.get(`/daily/fetch`, { params: { symbol } });
-    console.log("API Response for daily data:", response.data);
+      try {
+        console.log(`Fetching daily data for: ${symbol}`);
+        const response = await api.get(`/daily/fetch`, { params: { symbol } });
+        console.log("API Response for daily data:", response.data);
 
-    // Ensure response.data is an array before mapping
-    if (!Array.isArray(response.data)) {
-      throw new Error("Expected an array, but received: " + typeof response.data);
-    }
+        // Ensure response.data is an array before mapping
+        if (!Array.isArray(response.data)) {
+          throw new Error("Expected an array, but received: " + typeof response.data);
+        }
 
-    this.dailyChartSeries[0].data = response.data.map((d) => [
-      new Date(d.date_time).getTime(),
-      d.volume,
-    ]);
-    console.log("Daily data successfully mapped:", this.dailyChartSeries[0].data);
-  } catch (err) {
-    console.error("Failed to fetch daily data:", err.message);
-  }
-},
+        this.dailyChartSeries[0].data = response.data.map((d) => [
+          new Date(d.date_time).getTime(),
+          d.volume,
+        ]);
+        console.log("Daily data successfully mapped:", this.dailyChartSeries[0].data);
+      } catch (err) {
+        console.error("Failed to fetch daily data:", err.message);
+      }
+    },
 
     // Update current prices and calculate win/loss
     async updateCurrentPrices() {

@@ -105,32 +105,65 @@ main {
     background-color: #fff;
 }
 
-/* Screen Split */
+/* portfolio split into left (graphs) and right (portfolio) */
 .content-container {
     display: flex;
     gap: 20px;
     width: 100%;
     align-items: flex-start;
+    justify-content: space-between;
 }
 
+/* graphs */
 .graphs-section {
-    flex: 3;
-    /* 60% width */
+    flex: 2; 
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
     padding: var(--spacing-base);
     background: #fff;
     border: 1px solid var(--highlight-border-color);
     border-radius: 8px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    max-width: 40%; 
+    box-sizing: border-box; 
+    overflow: hidden; 
 }
+
+/* graph containers */
+.graph-container {
+    width: 100%; 
+    height: 300px; 
+    background-color: #f9f9f9; 
+    padding: 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    overflow: hidden; 
+}
+
 
 .portfolio-section {
-    flex: 2;
-    /* 40% width */
+    flex: 3;
     padding: var(--spacing-base);
     background: #fff;
     border: 1px solid var(--highlight-border-color);
     border-radius: 8px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    max-width: 60%; 
+    box-sizing: border-box; 
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .content-container {
+        flex-direction: column;
+    }
+
+    .graphs-section,
+    .portfolio-section {
+        max-width: 100%;
+    }
 }
 
 /* Headings */
@@ -1404,12 +1437,6 @@ button-container {
     white-space: pre-wrap;
     margin: 10px 0;
     word-break: break-word;
-}
-
-h2 {
-    gap: 10px;
-    font-size: 25px;
-    font-weight: bold;
 }
 
 .status-indicator {
