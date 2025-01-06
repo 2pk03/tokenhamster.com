@@ -78,7 +78,7 @@ async function initializeApp() {
     app.use(bodyParser.json());
     const corsOptions = {
         origin: function (origin, callback) {
-            console.log(`[DEBUG] Incoming origin: ${origin}`);
+            // console.log(`[DEBUG] Incoming origin: ${origin}`); //DEBUG
             const allowedOrigins = ['https://www.tokenhamster.com', 'https://tokenhamster.com', 'http://localhost:8080'];
             if (!origin || allowedOrigins.includes(origin)) {
                 callback(null, true);

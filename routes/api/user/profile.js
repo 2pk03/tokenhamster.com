@@ -48,7 +48,6 @@ router.get('/', authenticateToken, (req, res) => {
     });
 });
 
-// get profile picture
 router.get('/image/:id', authenticateToken, (req, res) => {
     const userId = req.params.id;
 
@@ -63,7 +62,21 @@ router.get('/image/:id', authenticateToken, (req, res) => {
             return res.status(404).send('Image not found');
         }
 
-        res.set('Content-Type', 'image/jpeg'); // Adjust MIME type as needed
+        // Dynamically set CORS headers
+        const allowedOrigins = ['https://www.tokenhamster.com', 'https://tokenhamster.com', 'http://localhost:8080'];
+        const origin = req.headers.origin;
+
+        if (allowedOrigins.includes(origin)) {
+            res.set({
+                'Access-Control-Allow-Origin': origin,
+                'Access-Control-Allow-Credentials': 'true',
+                'Content-Type': 'image/jpeg', // Adjust MIME type as needed
+            });
+        } else {
+            console.error(`[CORS] Origin not allowed: ${origin}`);
+            return res.status(403).send('Forbidden');
+        }
+
         res.send(row.profilePicture);
     });
 });

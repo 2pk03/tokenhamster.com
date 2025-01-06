@@ -5,7 +5,12 @@ const { db, updateAggregatedData } = require('../database');
 const { API_KEY_CRYPTOCOMPARE, CRYPTOCOMPARE_BASE_URL } = require('../config');
 
 const pollingIntervals = {};
-const DEFAULT_POLLING_INTERVAL = 5 * 60 * 1000; // Default: 5 minutes
+const DEV_POLLING_INTERVAL = 60 * 60 * 1000; 
+const PROD_POLLING_INTERVAL = 5 * 60 * 1000; 
+
+// Use the correct interval based on the environment
+const DEFAULT_POLLING_INTERVAL = process.env.DEV === '1' ? DEV_POLLING_INTERVAL : PROD_POLLING_INTERVAL;
+
 
 // Fetch crypto price data
 async function fetchCryptoPrice(cryptoSymbol, currency = 'USD') {
@@ -167,7 +172,7 @@ async function addTokenToPolling(cryptoSymbol, currency) {
         }
     }, DEFAULT_POLLING_INTERVAL);
 
-    console.log(`Polling interval set for ${cryptoSymbol} (${currency}).`);
+    console.log(`Polling interval set for ${cryptoSymbol} (${currency}) to ${DEFAULT_POLLING_INTERVAL / 1000}s.`);
 }
 
 async function fetchAndSaveHistoricalData(cryptoSymbol) {
