@@ -1,9 +1,11 @@
 <template>
   <div class="login-container">
+    <img src="images/tokenhamster.webp" alt="Hamster Background" class="background-image" />    
     <div class="login-page">
       <div class="center-content">
-        <h1>TokenHamster</h1>
-        <strong>beta v. 0.6</strong>
+        <h1 class="main-title">The TokenHamster</h1>
+        <p class="subtitle">Track your crypto offline securely and easily</p>
+        <strong>beta v. 0.72</strong>
       </div>
 
       <!-- Google Login Button -->
@@ -13,32 +15,27 @@
 
       <!-- OTP and Recovery Section -->
       <div v-if="showOtpField" class="otp-container">
-  <p v-if="!useRecoveryPhrase">Please enter the OTP from your authenticator app:</p>
-  <p v-if="useRecoveryPhrase">Enter your recovery phrase to disable 2FA:</p>
+        <p v-if="!useRecoveryPhrase">Please enter the OTP from your authenticator app:</p>
+        <p v-if="useRecoveryPhrase">Enter your recovery phrase to disable 2FA:</p>
 
-  <input 
-    v-model="currentInput" 
-    type="text" 
-    :placeholder="useRecoveryPhrase ? 'Enter Recovery Phrase' : 'Enter OTP'" 
-    class="otp-input" 
-    @keyup.enter="submitOtpOrRecovery()" 
-  />
+        <input v-model="currentInput" type="text"
+          :placeholder="useRecoveryPhrase ? 'Enter Recovery Phrase' : 'Enter OTP'" class="otp-input"
+          @keyup.enter="submitOtpOrRecovery()" />
 
-  <button class="button-large-imp" @click="submitOtpOrRecovery()">
-    {{ useRecoveryPhrase ? 'Recover 2FA' : 'Submit OTP' }}
-  </button>
+        <button class="button-large-imp" @click="submitOtpOrRecovery()">
+          {{ useRecoveryPhrase ? 'Recover 2FA' : 'Submit OTP' }}
+        </button>
 
-  <button class="button-large toggle-recovery" @click="toggleRecoveryMode">
-    {{ useRecoveryPhrase ? 'Use OTP Instead' : 'Recover Using Recovery Phrase' }}
-  </button>
+        <button class="button-large toggle-recovery" @click="toggleRecoveryMode">
+          {{ useRecoveryPhrase ? 'Use OTP Instead' : 'Recover Using Recovery Phrase' }}
+        </button>
 
-  <p v-if="otpErrorMessage" class="otp-error-message">{{ otpErrorMessage }}</p>
-  <p v-if="recoverySuccess" class="success-message">
-  Two-Factor Authentication is now disabled. You can re-enable it in your account settings.
-</p>
+        <p v-if="otpErrorMessage" class="otp-error-message">{{ otpErrorMessage }}</p>
+        <p v-if="recoverySuccess" class="success-message">
+          Two-Factor Authentication is now disabled. You can re-enable it in your account settings.
+        </p>
 
-</div>
-
+      </div>
     </div>
   </div>
 </template>
@@ -213,95 +210,95 @@ export default {
 
     // otp and recovery
     async submitOtpOrRecovery() {
-  if (this.retryCount >= this.maxRetries) {
-    this.otpErrorMessage = "Too many incorrect attempts. Please try again later.";
+      if (this.retryCount >= this.maxRetries) {
+        this.otpErrorMessage = "Too many incorrect attempts. Please try again later.";
 
-    // Log attempt blocking via Audit API
-    await api.post("/user/security/audit", {
-      action: "OTP_ATTEMPT_BLOCKED",
-      details: {
-        reason: "Max retry limit reached",
-        retries: this.retryCount,
-        time: new Date().toISOString(),
-      },
-    }).catch((err) => {
-      console.error("Failed to log audit action for blocked attempts:", err.response?.data || err);
-    });
+        // Log attempt blocking via Audit API
+        await api.post("/user/security/audit", {
+          action: "OTP_ATTEMPT_BLOCKED",
+          details: {
+            reason: "Max retry limit reached",
+            retries: this.retryCount,
+            time: new Date().toISOString(),
+          },
+        }).catch((err) => {
+          console.error("Failed to log audit action for blocked attempts:", err.response?.data || err);
+        });
 
-    return;
-  }
-
-  try {
-    const response = await api.post("/user/auth/google/validate", {
-      idToken: this.idToken,
-      otp: !this.useRecoveryPhrase ? this.otp : null,
-      recoveryPhrase: this.useRecoveryPhrase ? this.recoveryPhrase : null,
-    });
-
-    const token = response.data.token;
-
-    // Save token in localStorage
-    localStorage.setItem("token", token);
-
-    // Set authentication state in Vuex
-    this.$store.commit("auth/setToken", token);
-    this.$store.commit("auth/setUser", jwtDecode(token));
-    EventBus.emit("userLoggedIn");
-
-    // Log successful validation
-    const action = this.useRecoveryPhrase ? "2FA_RECOVERY" : "OTP_VALIDATION_SUCCESS";
-    await api.post("/user/security/audit", {
-      action: action,
-      details: {
-        retries: this.retryCount,
-        time: new Date().toISOString(),
-      },
-    }).catch((err) => {
-      console.error("Failed to log audit action for success:", err.response?.data || err);
-    });
-
-    // Show success message for recovery phrase
-    if (this.useRecoveryPhrase) {
-      alert("Two-Factor Authentication is now disabled. You can re-enable it in your account settings.");
-      this.recoverySuccess = true;
-    }
-
-    // Reset retry count
-    this.retryCount = 0;
-
-    // Redirect to the portfolio page
-    this.$router.push("/portfolio").catch((err) => {
-      if (err.name !== "NavigationDuplicated") {
-        console.error("Navigation error:", err);
+        return;
       }
-    });
-  } catch (err) {
-    console.error("Error validating OTP or Recovery Phrase:", err.response?.data || err);
-    this.retryCount++;
 
-    const remainingAttempts = this.maxRetries - this.retryCount;
-    if (remainingAttempts > 0) {
-      this.otpErrorMessage = this.useRecoveryPhrase
-        ? `Invalid recovery phrase. Please try again.`
-        : `Your submitted token is wrong, please try again. You have ${remainingAttempts} more attempt(s).`;
-    } else {
-      this.otpErrorMessage = "Too many incorrect attempts. Please try again later.";
-    }
+      try {
+        const response = await api.post("/user/auth/google/validate", {
+          idToken: this.idToken,
+          otp: !this.useRecoveryPhrase ? this.otp : null,
+          recoveryPhrase: this.useRecoveryPhrase ? this.recoveryPhrase : null,
+        });
 
-    // Log failed validation attempt
-    const action = this.useRecoveryPhrase ? "2FA_RECOVERY_FAILED" : "OTP_VALIDATION_FAILED";
-    await api.post("/user/security/audit", {
-      action: action,
-      details: {
-        reason: this.useRecoveryPhrase ? "Invalid Recovery Phrase" : "Invalid OTP",
-        retries: this.retryCount,
-        time: new Date().toISOString(),
-      },
-    }).catch((err) => {
-      console.error("Failed to log audit action for failure:", err.response?.data || err);
-    });
-  }
-},
+        const token = response.data.token;
+
+        // Save token in localStorage
+        localStorage.setItem("token", token);
+
+        // Set authentication state in Vuex
+        this.$store.commit("auth/setToken", token);
+        this.$store.commit("auth/setUser", jwtDecode(token));
+        EventBus.emit("userLoggedIn");
+
+        // Log successful validation
+        const action = this.useRecoveryPhrase ? "2FA_RECOVERY" : "OTP_VALIDATION_SUCCESS";
+        await api.post("/user/security/audit", {
+          action: action,
+          details: {
+            retries: this.retryCount,
+            time: new Date().toISOString(),
+          },
+        }).catch((err) => {
+          console.error("Failed to log audit action for success:", err.response?.data || err);
+        });
+
+        // Show success message for recovery phrase
+        if (this.useRecoveryPhrase) {
+          alert("Two-Factor Authentication is now disabled. You can re-enable it in your account settings.");
+          this.recoverySuccess = true;
+        }
+
+        // Reset retry count
+        this.retryCount = 0;
+
+        // Redirect to the portfolio page
+        this.$router.push("/portfolio").catch((err) => {
+          if (err.name !== "NavigationDuplicated") {
+            console.error("Navigation error:", err);
+          }
+        });
+      } catch (err) {
+        console.error("Error validating OTP or Recovery Phrase:", err.response?.data || err);
+        this.retryCount++;
+
+        const remainingAttempts = this.maxRetries - this.retryCount;
+        if (remainingAttempts > 0) {
+          this.otpErrorMessage = this.useRecoveryPhrase
+            ? `Invalid recovery phrase. Please try again.`
+            : `Your submitted token is wrong, please try again. You have ${remainingAttempts} more attempt(s).`;
+        } else {
+          this.otpErrorMessage = "Too many incorrect attempts. Please try again later.";
+        }
+
+        // Log failed validation attempt
+        const action = this.useRecoveryPhrase ? "2FA_RECOVERY_FAILED" : "OTP_VALIDATION_FAILED";
+        await api.post("/user/security/audit", {
+          action: action,
+          details: {
+            reason: this.useRecoveryPhrase ? "Invalid Recovery Phrase" : "Invalid OTP",
+            retries: this.retryCount,
+            time: new Date().toISOString(),
+          },
+        }).catch((err) => {
+          console.error("Failed to log audit action for failure:", err.response?.data || err);
+        });
+      }
+    },
     toggleRecoveryMode() {
       this.useRecoveryPhrase = !this.useRecoveryPhrase;
       this.otpErrorMessage = ""; // Clear error messages
@@ -309,3 +306,14 @@ export default {
   },
 };
 </script>
+<style scoped>
+.background-image {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover; /* Ensure the image covers the container */
+  z-index: -1; /* Send the image to the background */
+}
+</style>

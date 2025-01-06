@@ -32,6 +32,14 @@
     box-sizing: border-box;
 }
 
+html, body {
+    margin: 0;
+    padding: 0;
+    overflow: hidden; 
+    height: 100%;     
+    width: 100%;    
+}
+
 body {
     font-family: 'Lato', 'Roboto', 'Arial', sans-serif;
     font-size: var(--font-size-base);
@@ -59,7 +67,7 @@ main {
 .center-content {
     text-align: center;
     margin-bottom: 20px;
-  }
+}
 
 /* Container Styles */
 .container {
@@ -87,22 +95,27 @@ main {
 
 .login-container {
     display: flex;
-    justify-content: center;
-    align-items: center;
-    min-height: 100vh;
-    padding: 20px;
-    box-sizing: border-box;
-    background-color: var(--background-color);
+    justify-content: center; 
+    align-items: center;   
+    height: 100vh;      
+    width: 100vw;          
+    margin: 0;             
+    background-size: cover; 
 }
 
 .login-page {
-    max-width: 500px;
-    width: 50%;
-    padding: 20px;
+    max-width: 500px;      
+    width: 100%;            
     border: 1px solid var(--border-color);
     border-radius: 8px;
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-    background-color: #fff;
+    background-color: rgba(255, 255, 255, 0.8);
+    display: flex;
+    flex-direction: column; 
+    justify-content: center; 
+    align-items: center;   
+    padding: 20px;         
+    box-sizing: border-box; 
 }
 
 /* portfolio split into left (graphs) and right (portfolio) */
@@ -116,7 +129,7 @@ main {
 
 /* graphs */
 .graphs-section {
-    flex: 2; 
+    flex: 2;
     display: flex;
     flex-direction: column;
     gap: 20px;
@@ -125,21 +138,21 @@ main {
     border: 1px solid var(--highlight-border-color);
     border-radius: 8px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    max-width: 40%; 
-    box-sizing: border-box; 
-    overflow: hidden; 
+    max-width: 40%;
+    box-sizing: border-box;
+    overflow: hidden;
 }
 
 /* graph containers */
 .graph-container {
-    width: 100%; 
-    height: 300px; 
-    background-color: #f9f9f9; 
+    width: 100%;
+    height: 300px;
+    background-color: #f9f9f9;
     padding: 10px;
     border: 1px solid var(--border-color);
     border-radius: 8px;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-    overflow: hidden; 
+    overflow: hidden;
 }
 
 
@@ -150,8 +163,8 @@ main {
     border: 1px solid var(--highlight-border-color);
     border-radius: 8px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    max-width: 60%; 
-    box-sizing: border-box; 
+    max-width: 60%;
+    box-sizing: border-box;
 }
 
 /* Responsive adjustments */
@@ -200,87 +213,87 @@ a:hover {
 /* Buttons */
 button {
     width: 150px;
-    height: auto; 
+    height: auto;
     background-color: white;
     color: darkblue;
     border: 1px solid darkblue;
     padding: var(--spacing-small) var(--spacing-base);
-    border-radius: 0; 
+    border-radius: 0;
     cursor: pointer;
     font-size: var(--font-size-base);
     transition: background-color 0.3s ease;
-    margin: 10px; 
+    margin: 10px;
 }
 
 .button-imp {
     width: 150px;
-    height: auto; 
+    height: auto;
     background-color: white;
     color: orangered;
     border: 1px solid orangered;
     padding: var(--spacing-small) var(--spacing-base);
-    border-radius: 0; 
+    border-radius: 0;
     cursor: pointer;
     font-size: var(--font-size-base);
     transition: background-color 0.3s ease;
-    margin: 10px; 
+    margin: 10px;
 }
 
 .button-small {
     width: auto;
-    height: auto; 
+    height: auto;
     background-color: white;
     color: darkblue;
     border: 1px solid darkblue;
     padding: var(--spacing-small) var(--spacing-base);
-    border-radius: 0; 
+    border-radius: 0;
     cursor: pointer;
     font-size: var(--font-size-base);
     transition: background-color 0.3s ease;
-    margin: 10px; 
+    margin: 10px;
 }
 
 .button-small-imp {
     width: auto;
-    height: auto; 
+    height: auto;
     background-color: white;
     color: orangered;
     border: 1px solid orangered;
     padding: var(--spacing-small) var(--spacing-base);
-    border-radius: 0; 
+    border-radius: 0;
     cursor: pointer;
     font-size: var(--font-size-base);
     transition: background-color 0.3s ease;
-    margin: 10px; 
+    margin: 10px;
 }
 
 
 .button-large {
     width: 350px;
-    height: auto; 
+    height: auto;
     background-color: white;
     color: darkblue;
     border: 1px solid darkblue;
     padding: var(--spacing-small) var(--spacing-base);
-    border-radius: 0; 
+    border-radius: 0;
     cursor: pointer;
     font-size: var(--font-size-base);
     transition: background-color 0.3s ease;
-    margin: 10px; 
+    margin: 10px;
 }
 
 .button-large-imp {
     width: 350px;
-    height: auto; 
+    height: auto;
     background-color: white;
     color: orangered;
     border: 1px solid orangered;
     padding: var(--spacing-small) var(--spacing-base);
-    border-radius: 0; 
+    border-radius: 0;
     cursor: pointer;
     font-size: var(--font-size-base);
     transition: background-color 0.3s ease;
-    margin: 10px; 
+    margin: 10px;
 }
 
 
@@ -656,7 +669,7 @@ button-container {
 
 /* Modal Styles */
 .modal-overlay {
-    display: flex; 
+    display: flex;
     justify-content: center;
     align-items: center;
     position: fixed;
@@ -664,7 +677,7 @@ button-container {
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0, 0, 0, 0.5); 
+    background: rgba(0, 0, 0, 0.5);
     z-index: 1000;
 }
 
@@ -676,8 +689,9 @@ button-container {
     width: 90%;
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
     text-align: center;
-    z-index: 1001; 
+    z-index: 1001;
 }
+
 .modal h3 {
     margin-bottom: var(--spacing-base);
     color: var(--primary-color);
@@ -737,7 +751,8 @@ button-container {
     display: flex;
     justify-content: center;
     align-items: center;
-    z-index: 1100; /* Ensure this modal is above others */
+    z-index: 1100;
+    /* Ensure this modal is above others */
 }
 
 .add-token-modal {
@@ -748,7 +763,8 @@ button-container {
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
     max-width: 400px;
     width: 90%;
-    z-index: 1101; /* Ensure modal content is above the overlay */
+    z-index: 1101;
+    /* Ensure modal content is above the overlay */
     text-align: center;
 }
 
@@ -874,24 +890,24 @@ button-container {
 .menu-dropdown .dropdown-content {
     display: flex;
     flex-direction: column;
-    align-items: stretch; 
+    align-items: stretch;
     position: absolute;
     background-color: var(--background-color);
     border: 1px solid var(--border-color);
     border-radius: 8px;
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
     list-style: none;
-    padding: 10px; 
-    margin-top: 10px; 
-    min-width: 150px; 
+    padding: 10px;
+    margin-top: 10px;
+    min-width: 150px;
     z-index: 10;
     top: calc(100% + 10px);
-    left: 50%; 
-    transform: translate(-50%) 
+    left: 50%;
+    transform: translate(-50%)
 }
 
 .menu-dropdown .dropdown-content li {
-    width: 100%; 
+    width: 100%;
     margin: 5px 0;
 }
 
@@ -899,13 +915,13 @@ button-container {
     text-decoration: none;
     color: var(--text-color);
     padding: 10px 20px;
-    display: block; 
+    display: block;
     transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 .menu-dropdown .menu-item:hover {
-    background-color: var(--secondary-color); 
-    color: white; 
+    background-color: var(--secondary-color);
+    color: white;
 }
 
 .menu-item {
@@ -927,12 +943,12 @@ button-container {
 
 .menu-dropdown.profile-container-menu {
     display: flex;
-    align-items: center; 
-    justify-content: center; 
-    height: 100%; 
-    position: relative; 
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    position: relative;
     margin-right: 40px;
-  }
+}
 
 /* Hover Effect */
 .add-token-button:hover {
@@ -1396,12 +1412,12 @@ button-container {
 /****************************************************
  * OTP Login page
  ****************************************************/
- .otp-container {
+.otp-container {
     margin-top: 20px;
     text-align: center;
-  }
-  
-  .otp-input {
+}
+
+.otp-input {
     width: 80%;
     padding: 10px;
     font-size: 16px;
@@ -1410,20 +1426,20 @@ button-container {
     border: 2px solid #ccc;
     border-radius: 5px;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  }
-  
-  .otp-input:focus {
+}
+
+.otp-input:focus {
     outline: none;
     border-color: #4285f4;
-  }
+}
 
-  .otp-error-message {
+.otp-error-message {
     color: orangered;
     margin-top: 10px;
-  }
+}
 
-  /* mnenomic words */
-  .seed-container {
+/* mnenomic words */
+.seed-container {
     margin-top: 20px;
     padding: 10px;
     background-color: #f9f9f9;
@@ -1454,26 +1470,83 @@ button-container {
 
 .overview-section {
     margin-bottom: 20px;
-  }
-  
-  .overview-metrics {
+}
+
+.overview-metrics {
     display: flex;
     gap: 15px;
     font-size: 20px;
-  }
-  
-  .win {
+}
+
+.win {
     color: green;
     font-weight: bold;
-  }
-  
-  .loss {
+}
+
+.loss {
     color: red;
     font-weight: bold;
-  }
+}
 
-  .overview-invest {
+.overview-invest {
     color: black;
     font-weight: bold;
+}
+
+/*** Login Page */
+.main-title {
+    font-size: calc(var(--font-size-large) * 2);
+    color: var(--primary-color);
+    margin-bottom: var(--spacing-base);
+}
+
+/* Subtitle Styling */
+.subtitle {
+    font-size: calc(var(--font-size-base) * 1.2);
+    color: var(--text-color);
+    margin-bottom: var(--spacing-large);
+}
+
+/* Hamster Image Styling */
+.hamster-image-container {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%; /* Full width */
+    overflow: hidden; /* Ensure any extra content doesn't appear */
+    z-index: -1; /* Push behind content */
+  }
+  
+  .hamster-image {
+    width: 100%; /* Scale to full width */
+    height: auto; /* Maintain aspect ratio */
+    opacity: 1; /* Fully visible at the bottom */
+    position: relative;
+    /* animation: fadeOutToTop 10s ease-in-out infinite; /* Optional animation for effect */
+  }
+  
+  /* Gradient fade effect */
+  .hamster-image-container::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(to top, rgba(255, 255, 255, 0) 60%, white 100%);
+    z-index: 1; /* Ensure it overlays the image */
+    pointer-events: none; /* Allow clicks through the gradient */
+  }
+  
+  /* Optional: Keyframe animation to fade-out effect */
+  @keyframes fadeOutToTop {
+    0% {
+      transform: translateY(0%);
+      opacity: 1;
+    }
+    100% {
+      transform: translateY(-20%);
+      opacity: 0.7;
+    }
   }
   
