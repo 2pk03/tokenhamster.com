@@ -78,10 +78,13 @@ async function initializeApp() {
     app.use(bodyParser.json());
     const corsOptions = {
         origin: function (origin, callback) {
-            if (!origin || ['https://www.tokenhamster.com', 'http://localhost:8080'].indexOf(origin) !== -1) {
-                callback(null, true)
+            console.log(`[DEBUG] Incoming origin: ${origin}`);
+            const allowedOrigins = ['https://www.tokenhamster.com', 'http://localhost:8080'];
+            if (!origin || allowedOrigins.includes(origin)) {
+                callback(null, true);
             } else {
-                callback(new Error('Not allowed by CORS'))
+                console.error(`[CORS] Origin not allowed: ${origin}`);
+                callback(new Error('Not allowed by CORS'));
             }
         },
         methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
