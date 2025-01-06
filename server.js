@@ -75,7 +75,21 @@ async function initializeApp() {
     await ensureSecrets(); // Validate and collect secrets
 
     app.use(bodyParser.json());
-    app.use(cors());
+    const corsOptions = {
+        origin: function (origin, callback) {
+            if (!origin || ['https://www.tokenhamster.com', 'http://localhost:8080'].indexOf(origin) !== -1) {
+                callback(null, true)
+            } else {
+                callback(new Error('Not allowed by CORS'))
+            }
+        },
+        methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+        allowedHeaders: ['Authorization', 'Content-Type'],
+        credentials: true,
+    };
+    
+    app.use(cors(corsOptions));
+    
 
     // Uncomment if rate limiting is required
     /*
