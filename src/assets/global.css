@@ -32,14 +32,6 @@
     box-sizing: border-box;
 }
 
-html, body {
-    margin: 0;
-    padding: 0;
-    overflow: hidden; 
-    height: 100%;     
-    width: 100%;    
-}
-
 body {
     font-family: 'Lato', 'Roboto', 'Arial', sans-serif;
     font-size: var(--font-size-base);
@@ -91,31 +83,6 @@ main {
     padding: 20px;
     text-align: center;
     background-color: var(--background-color);
-}
-
-.login-container {
-    display: flex;
-    justify-content: center; 
-    align-items: center;   
-    height: 100vh;      
-    width: 100vw;          
-    margin: 0;             
-    background-size: cover; 
-}
-
-.login-page {
-    max-width: 500px;      
-    width: 100%;            
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-    background-color: rgba(255, 255, 255, 0.8);
-    display: flex;
-    flex-direction: column; 
-    justify-content: center; 
-    align-items: center;   
-    padding: 20px;         
-    box-sizing: border-box; 
 }
 
 /* portfolio split into left (graphs) and right (portfolio) */
