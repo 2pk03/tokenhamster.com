@@ -6,9 +6,9 @@
         <p v-else>Loading image...</p>
       </div>
       <div class="audit-log">
-        <p><strong>Username:</strong> {{ profile.username }}</p>
-        <p><strong>Email:</strong> {{ profile.email }}</p>
-        <p><strong>User ID:</strong> {{ profile.id }}</p>
+        <p><strong>Username:</strong> {{ userDetails?.username }}</p>
+        <p><strong>Email:</strong> {{ userDetails?.email }}</p>
+        <p><strong>User ID:</strong> {{ userDetails?.id }}</p>
       </div>
     </div>
 
@@ -79,11 +79,7 @@ import { getProfileImageUrl } from '@/api';
 export default {
   data() {
     return {
-      profile: {
-        id: "",
-        username: "",
-        email: "",
-      },
+      userDetails: null,
       profilePictureUrl: "",
       auditLogs: [],
       currentPage: 1,
@@ -114,26 +110,30 @@ export default {
 
   methods: {
     async fetchProfile() {
-      try {
-        const response = await api.get('/user/profile'); // Adjust endpoint if needed
-        const userId = response.data.id;
-        if (userId) {
-          this.fetchProfilePicture(userId);
-        }
-      } catch (error) {
-        console.error('Error fetching profile:', error);
+    try {
+      const response = await api.get('/user/profile');
+      console.log('Fetched user profile:', response.data); // DEBUG
+      this.userDetails = response.data;
+      if (this.userDetails.id) {
+        this.fetchProfilePicture(this.userDetails.id);
+      } else {
+        console.warn('User ID not found in profile data.');
       }
-    },
+    } catch (error) {
+      console.error('Error fetching profile:', error);
+    }
+  },
 
-    async fetchProfilePicture(userId) {
-      try {
-        const url = getProfileImageUrl(userId); // Use utility from api.js
-        const response = await api.get(url, { responseType: 'blob' });
-        this.profilePictureUrl = URL.createObjectURL(response.data);
-      } catch (error) {
-        console.error('Error fetching profile picture:', error);
-      }
-    },
+  async fetchProfilePicture(userId) {
+    try {
+      const url = getProfileImageUrl(userId);
+      console.log('Fetching profile picture from:', url); // DEBUG
+      const response = await api.get(url, { responseType: 'blob' });
+      this.profilePictureUrl = URL.createObjectURL(response.data);
+    } catch (error) {
+      console.error('Error fetching profile picture:', error);
+    }
+  },
     getUserId() {
       return localStorage.getItem('userId') || null;
     },
