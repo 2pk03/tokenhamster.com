@@ -170,7 +170,7 @@ export default {
                     this.qrCodeUrl = url;
                 });
 
-                console.log("Recovery seed captured:", this.recoverySeed);
+                // console.log("Recovery seed captured:", this.recoverySeed); // DEBUG
             } catch (error) {
                 console.error("Failed to enable 2FA:", error);
                 alert("Unable to enable Two-Factor Authentication. Please try again.");
@@ -228,7 +228,7 @@ export default {
             try {
                 const response = await api.get("/user/security/get-2fa-seed");
                 this.recoverySeed = response.data.recoverySeed;
-                console.log("Recovery seed fetched:", this.recoverySeed);
+                // console.log("Recovery seed fetched:", this.recoverySeed); // DEBUG
             } catch (error) {
                 console.error("Failed to fetch recovery seed:", error.response?.data || error);
                 alert("Unable to fetch recovery seed. Please try again.");

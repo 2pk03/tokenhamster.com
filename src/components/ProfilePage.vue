@@ -112,7 +112,6 @@ export default {
     async fetchProfile() {
     try {
       const response = await api.get('/user/profile');
-      console.log('Fetched user profile:', response.data); // DEBUG
       this.userDetails = response.data;
       if (this.userDetails.id) {
         this.fetchProfilePicture(this.userDetails.id);
@@ -127,7 +126,6 @@ export default {
   async fetchProfilePicture(userId) {
     try {
       const url = getProfileImageUrl(userId);
-      console.log('Fetching profile picture from:', url); // DEBUG
       const response = await api.get(url, { responseType: 'blob' });
       this.profilePictureUrl = URL.createObjectURL(response.data);
     } catch (error) {

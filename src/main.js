@@ -10,7 +10,7 @@ import { jwtDecode } from 'jwt-decode';
 // Refresh token interval
 let refreshInterval = null;
 
-console.log('Initial Store State:', store.state.auth); // Debugging
+// console.log('Initial Store State:', store.state.auth); // Debugging
 
 const startRefreshInterval = () => {
     if (refreshInterval) return; // Prevent multiple intervals
@@ -25,7 +25,7 @@ const startRefreshInterval = () => {
                 if (decoded.exp > now) {
                     store.commit('auth/setUser', decoded); // Set the user data from the token
                     store.commit('auth/setAuthenticated', true); // Set isAuthenticated to true
-                    console.log('Token valid. Initializing refresh interval.');
+                    // ('Token valid. Initializing refresh interval.'); // DEBUG
                     startRefreshInterval();
                 } else {
                     console.warn('Token expired. Logging out.');
@@ -58,7 +58,7 @@ if (token) {
             console.warn('Token expired on app load. Logging out.');
             store.dispatch('auth/logout');
         } else {
-            console.log('Token valid. Initializing refresh interval.');
+            // console.log('Token valid. Initializing refresh interval.'); // DEBUG
             store.commit('auth/setUser', decoded); // Update user state
             startRefreshInterval(); // Start refreshing tokens if valid
         }
@@ -84,7 +84,7 @@ store.watch(
 
 // Google Token Validation for OAuth Login
 window.handleGoogleCallback = async (response) => {
-    console.log("Google OAuth Callback Response:", response);
+    // console.log("Google OAuth Callback Response:", response); // DEBUG
 
     try {
         const idToken = response.credential;
@@ -104,7 +104,7 @@ window.handleGoogleCallback = async (response) => {
         store.commit('auth/setToken', token);
         store.commit('auth/setUser', jwtDecode(token));
 
-        console.log('Google token validated and user authenticated:', jwtDecode(token));
+        // console.log('Google token validated and user authenticated:', jwtDecode(token)); // DEBUG
 
         // Redirect to portfolio
         router.push('/portfolio');
@@ -116,7 +116,7 @@ window.handleGoogleCallback = async (response) => {
 
 // Google OAuth token validation
 window.handleGoogleCallback = async (response) => {
-    console.log("Google OAuth Callback Response:", response);
+    // console.log("Google OAuth Callback Response:", response); // DEBUG
 
     const idToken = response?.credential; // Check if credential exists
     if (!idToken) {
@@ -145,7 +145,7 @@ window.handleGoogleCallback = async (response) => {
         // Commit to Vuex store
         store.commit('auth/setToken', token);
         store.commit('auth/setUser', jwtDecode(token));
-        console.log('Google token validated and user authenticated:', jwtDecode(token));
+        // console.log('Google token validated and user authenticated:', jwtDecode(token)); // DEBUG
 
         // Redirect to a protected route
         router.push('/portfolio');
@@ -156,7 +156,7 @@ window.handleGoogleCallback = async (response) => {
 };
 
 // Log debugging information for Google OAuth
-console.log('Google Client ID:', process.env.VUE_APP_GOOGLE_CLIENT_ID);
+// console.log('Google Client ID:', process.env.VUE_APP_GOOGLE_CLIENT_ID); // DEBUG
 
 // Initialize Vue App
 createApp(App)

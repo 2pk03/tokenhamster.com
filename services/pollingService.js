@@ -15,7 +15,7 @@ const DEFAULT_POLLING_INTERVAL = process.env.DEV === '1' ? DEV_POLLING_INTERVAL 
 // Fetch crypto price data
 async function fetchCryptoPrice(cryptoSymbol, currency = 'USD') {
     try {
-        console.log(`Fetching price for ${cryptoSymbol} in ${currency}...`);
+        // console.log(`Fetching price for ${cryptoSymbol} in ${currency}...`); // DEBUG
         const response = await axios.get(`${CRYPTOCOMPARE_BASE_URL}/pricemultifull`, {
             params: {
                 fsyms: cryptoSymbol,
@@ -26,7 +26,7 @@ async function fetchCryptoPrice(cryptoSymbol, currency = 'USD') {
         const priceData = response.data.RAW[cryptoSymbol]?.[currency] || null;
 
         if (priceData) {
-            console.log(`Price data for ${cryptoSymbol} (${currency}):`, priceData);
+            // console.log(`Price data for ${cryptoSymbol} (${currency}):`, priceData); // DEBUG
             return {
                 crypto_symbol: cryptoSymbol,
                 currency,
@@ -47,7 +47,7 @@ async function fetchCryptoPrice(cryptoSymbol, currency = 'USD') {
 
 // Save polled data into the database
 function savePolledData({ crypto_symbol, currency, price, timestamp, volume, market_cap }) {
-    console.log(`Saving data for ${crypto_symbol} (${currency})`);
+    // console.log(`Saving data for ${crypto_symbol} (${currency})`); // DEBUG
 
     // Update current_prices
     const updateCurrentQuery = `
@@ -61,7 +61,7 @@ function savePolledData({ crypto_symbol, currency, price, timestamp, volume, mar
         if (err) {
             console.error(`Error saving to current_prices:`, err.message);
         } else {
-            console.log(`Updated current_prices for ${crypto_symbol} (${currency})`);
+            console.log(`Updated current_prices for ${crypto_symbol} (${currency})`); 
         }
     });
 
@@ -128,7 +128,7 @@ async function pollPricesForSymbolsAndCurrencies() {
             ).values(),
         ];
 
-        console.log("Polling unique pairs:", uniquePairs);
+        // console.log("Polling unique pairs:", uniquePairs); // DEBUG
 
         for (const { crypto_symbol, currency } of uniquePairs) {
             const data = await fetchCryptoPrice(crypto_symbol, currency);
@@ -154,18 +154,18 @@ async function pollPricesForSymbolsAndCurrencies() {
 async function addTokenToPolling(cryptoSymbol, currency) {
     const pollingKey = `${cryptoSymbol}-${currency}`;
     if (pollingIntervals[pollingKey]) {
-        console.log(`Polling already active for ${cryptoSymbol} (${currency}).`);
+        // console.log(`Polling already active for ${cryptoSymbol} (${currency}).`); // DEBUG
         return;
     }
 
-    console.log(`Adding ${cryptoSymbol} (${currency}) to polling.`);
+    // console.log(`Adding ${cryptoSymbol} (${currency}) to polling.`); // DEBUG
     fetchAndSaveHistoricalData(cryptoSymbol); // Ensure historical data is fetched.
 
     pollingIntervals[pollingKey] = setInterval(async () => {
-        console.log(`Polling for ${cryptoSymbol} in ${currency}...`);
+        // console.log(`Polling for ${cryptoSymbol} in ${currency}...`); // DEBUG
         const data = await fetchCryptoPrice(cryptoSymbol, currency);
         if (data) {
-            console.log(`Fetched valid data for ${cryptoSymbol} (${currency}):`, data);
+            // console.log(`Fetched valid data for ${cryptoSymbol} (${currency}):`, data); // DEBUG
             savePolledData(data);
         } else {
             console.warn(`No valid data received for ${cryptoSymbol} (${currency})`);
@@ -304,7 +304,7 @@ function startPolling() {
             return;
         }
 
-        console.log('Fetched cryptos for polling:', rows);
+        // console.log('Fetched cryptos for polling:', rows); // DEBUG
 
         // Start polling for each unique token-currency pair
         rows.forEach(({ crypto_symbol, purchase_currency }) => {

@@ -187,7 +187,7 @@ router.post('/google/validate', async (req, res) => {
             });
           });
 
-          console.log(`2FA disabled for user ID: ${userId} using recovery phrase.`);
+          console.log(`2FA disabled for user ID: ${userId} using recovery phrase.`); 
         } else {
           return res.status(401).json({ error: 'Two-Factor Authentication required' });
         }
@@ -272,12 +272,12 @@ router.post('/refresh-token', authenticateToken, (req, res) => {
   const timeLeft = tokenExp - now;
 
   if (timeLeft > 5 * 60) {
-    console.log('Token refresh not needed. Time left (seconds):', timeLeft); // DEBUG
+    // console.log('Token refresh not needed. Time left (seconds):', timeLeft); // DEBUG
     return res.status(400).json({ message: 'Token refresh not needed yet.' });
   }
 
   const newToken = jwt.sign({ id }, SECRET_KEY, { expiresIn: '15m' });
-  console.log('Token refreshed for user ID:', id); // DEBUG
+  // console.log('Token refreshed for user ID:', id); // DEBUG
 
   // Update Vuex-like auth state
   updateAuthState(newToken);
@@ -296,7 +296,7 @@ router.get('/active-users', authenticateToken, (req, res) => {
 });
 
 router.post('/logout', (req, res) => {
-  console.log('User logged out.'); // DEBUG
+  // console.log('User logged out.'); // DEBUG
   clearAuthState();
   res.status(200).json({ message: 'Logged out successfully.' });
 });

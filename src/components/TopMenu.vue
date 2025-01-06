@@ -107,7 +107,7 @@ export default {
   },
   methods: {
     logout() {
-      console.log("Logging out");
+      // console.log("Logging out"); // DEBUG
       localStorage.removeItem("token");
       this.$router.push("/login");
     },

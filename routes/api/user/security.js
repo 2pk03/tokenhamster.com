@@ -131,7 +131,7 @@ router.post('/cancel-2fa-setup', authenticateToken, async (req, res) => {
                 return res.status(500).json({ error: 'Failed to cancel 2FA setup.' });
             }
 
-            console.log(`Temporary 2FA setup canceled for user ID: ${userId}`);
+            // console.log(`Temporary 2FA setup canceled for user ID: ${userId}`); // DEBUG
             res.json({ message: '2FA setup canceled.' });
         });
     } catch (error) {

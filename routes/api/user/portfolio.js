@@ -29,7 +29,7 @@ router.get('/fetch', (req, res) => {
             return res.status(500).json({ error: 'Portfolio not found.' });
         }
 
-        console.log(`Fetching portfolio for user ID: ${userId}, portfolio ID: ${portfolioId}`);
+        // console.log(`Fetching portfolio for user ID: ${userId}, portfolio ID: ${portfolioId}`); // DEBUG
         fetchPortfolioData(userId, portfolioId, (fetchErr, rows) => {
             if (fetchErr) {
                 console.error('Failed to fetch portfolio:', fetchErr.message);
@@ -74,7 +74,7 @@ router.post('/token/add', (req, res) => {
             return res.status(500).json({ error: 'Portfolio not found.' });
         }
 
-        console.log(`Adding token ${symbol} to user ID: ${userId}, portfolio ID: ${portfolioId}`);
+        // console.log(`Adding token ${symbol} to user ID: ${userId}, portfolio ID: ${portfolioId}`); // DEBUG
         addTokenToPortfolio(userId, portfolioId, { symbol, purchasePrice, purchaseCurrency, purchaseDate, amount }, (addErr) => {
             if (addErr) {
                 console.error(`Failed to add token ${symbol}:`, addErr.message);
@@ -94,7 +94,7 @@ router.post('/token/add', (req, res) => {
                 }
             );
 
-            console.log(`Token ${symbol} added successfully for user ID: ${userId}, portfolio ID: ${portfolioId}`);
+            // console.log(`Token ${symbol} added successfully for user ID: ${userId}, portfolio ID: ${portfolioId}`); // DEBUG
             res.json({ message: 'Token added successfully.' });
         });
     });
@@ -138,7 +138,7 @@ router.post('/token/remove', (req, res) => {
             return res.status(500).json({ error: 'Portfolio not found.' });
         }
 
-        console.log(`Removing token ${symbol} from user ID: ${userId}, portfolio ID: ${portfolioId}`);
+        // console.log(`Removing token ${symbol} from user ID: ${userId}, portfolio ID: ${portfolioId}`); // DEBUG
         removeTokenFromPortfolio(userId, portfolioId, symbol, (deleteErr) => {
             if (deleteErr) {
                 console.error(`Database error while removing token ${symbol}:`, deleteErr.message);
@@ -158,7 +158,7 @@ router.post('/token/remove', (req, res) => {
                 }
             );
 
-            console.log(`Token ${symbol} removed successfully for user ID: ${userId}, portfolio ID: ${portfolioId}`);
+            // console.log(`Token ${symbol} removed successfully for user ID: ${userId}, portfolio ID: ${portfolioId}`); // DEBUG
             res.json({ message: 'Token removed successfully.' });
         });
     });
@@ -321,7 +321,7 @@ function markPortfolioAsDeleted(portfolioId, userId, callback) {
             console.warn(`No portfolio updated: ID ${portfolioId}, User ID ${userId}`);
             return callback(new Error('No portfolio found to update.'));
         }
-        console.log(`Portfolio marked as deleted: ID ${portfolioId}, User ID ${userId}`);
+        // console.log(`Portfolio marked as deleted: ID ${portfolioId}, User ID ${userId}`); // DEBUG
         callback(null);
     });
 }
@@ -366,7 +366,7 @@ router.post('/import', upload.single('file'), (req, res) => {
         }
 
         const portfolioId = portfolio.id;
-        console.log(`Using active portfolio ID: ${portfolioId}`);
+        // console.log(`Using active portfolio ID: ${portfolioId}`); // DEBUG
 
         // Proceed to import tokens into the active portfolio
         importTokens(portfolioId, portfolioData, req, res);
@@ -470,8 +470,8 @@ router.get('/export', (req, res) => {
             console.error('Error retrieving default portfolio ID:', err ? err.message : 'Not found');
             return res.status(500).json({ error: 'Default portfolio not found.' });
         }
-
-        console.log(`Exporting portfolio for user ID: ${userId}, portfolio ID: ${portfolioId}`);
+ 
+        // console.log(`Exporting portfolio for user ID: ${userId}, portfolio ID: ${portfolioId}`); // DEBUG
         fetchPortfolioForExport(userId, portfolioId, (fetchErr, rows) => {
             if (fetchErr) {
                 console.error('Error exporting portfolio:', fetchErr.message);

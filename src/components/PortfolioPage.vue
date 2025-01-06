@@ -223,7 +223,7 @@ export default {
           currentPrice: null,
           winLoss: null,
         }));
-        console.log("Portfolio fetched:", this.portfolio);
+        // console.log("Portfolio fetched:", this.portfolio); // DEBUG
 
         // Fetch current prices
         await this.updateCurrentPrices();
@@ -272,9 +272,9 @@ export default {
     // Fetch daily prices
     async fetchDailyData(symbol) {
       try {
-        console.log(`Fetching daily data for: ${symbol}`);
+        // console.log(`Fetching daily data for: ${symbol}`); // DEBUG
         const response = await api.get(`/daily/fetch`, { params: { symbol } });
-        console.log("API Response for daily data:", response.data);
+        // console.log("API Response for daily data:", response.data); // DEBUG
 
         // Ensure response.data is an array before mapping
         if (!Array.isArray(response.data)) {
@@ -308,11 +308,11 @@ export default {
           // Calculate win/loss
           token.winLoss = currentTotalValue - totalPurchaseValue;
 
-          console.log(`Updated data for ${token.symbol}:`, {
+           /* console.log(`Updated data for ${token.symbol}:`, {
             totalPurchaseValue,
             currentTotalValue,
             winLoss: token.winLoss,
-          });
+          }); */
         } catch (err) {
           console.error(`Failed to fetch current price for ${token.symbol}:`, err);
         }
@@ -320,7 +320,7 @@ export default {
 
       // Trigger reactivity update
       this.portfolio = [...this.portfolio];
-      console.log("Portfolio updated with new prices and timestamps:", this.portfolio);
+      // console.log("Portfolio updated with new prices and timestamps:", this.portfolio); // DEBUG
     },
 
     // Format prices for display
@@ -388,7 +388,7 @@ export default {
       }
 
       this.portfolio = [...this.portfolio];
-      console.log("Portfolio updated with currency conversion:", this.portfolio);
+      // console.log("Portfolio updated with currency conversion:", this.portfolio); // DEBUG
     },
 
     // Format timestamp
@@ -415,7 +415,7 @@ export default {
       try {
         await api.post("/user/portfolio/token/remove", { symbol });
         this.portfolio = this.portfolio.filter((token) => token.symbol !== symbol); // Remove token locally
-        console.log("Token removed:", symbol);
+        // console.log("Token removed:", symbol); // DEBUG
 
         // Emit the refreshPortfolio event
         EventBus.emit("refreshPortfolio");

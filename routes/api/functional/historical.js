@@ -35,7 +35,7 @@ router.get('/fetch', async (req, res) => {
   
       try {
         while (hasMoreData) {
-          console.log(`Fetching historical data for ${symbol} until timestamp: ${toTs}`);
+          // console.log(`Fetching historical data for ${symbol} until timestamp: ${toTs}`); // DEBUG
           const response = await axios.get(`${CRYPTOCOMPARE_BASE_URL}/v2/histoday`, {
             params: {
               fsym: symbol,
@@ -50,7 +50,7 @@ router.get('/fetch', async (req, res) => {
   
           // Check if valid data is returned
           if (!historicalData || historicalData.length === 0) {
-            console.log(`No more data available for ${symbol}. Stopping.`);
+            // console.log(`No more data available for ${symbol}. Stopping.`); // DEBUG
             hasMoreData = false;
             break;
           }
@@ -70,7 +70,7 @@ router.get('/fetch', async (req, res) => {
   
           // Break if the response contains less than the limit, indicating no more data
           if (historicalData.length < 2000) {
-            console.log(`Fetched less than 2000 entries for ${symbol}. Assuming no more data.`);
+            // console.log(`Fetched less than 2000 entries for ${symbol}. Assuming no more data.`); // DEBUG
             hasMoreData = false;
           }
         }

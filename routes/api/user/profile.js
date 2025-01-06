@@ -15,7 +15,7 @@ const router = express.Router();
 const tempDir = path.join(__dirname, '../../../temp/uploads');
 if (!fs.existsSync(tempDir)) {
     fs.mkdirSync(tempDir, { recursive: true });
-    console.log(`Temporary upload directory created at: ${tempDir}`);
+    // console.log(`Temporary upload directory created at: ${tempDir}`); // DEBUG
 }
 
 // Configure multer for file uploads

@@ -6,7 +6,7 @@ const api = axios.create({
   baseURL: process.env.VUE_APP_API_BASE_URL || 'http://localhost:4467/api', // Fallback for development
 });
 
-console.log('API Base URL:', process.env.VUE_APP_API_BASE_URL || 'http://localhost:4467/api'); //DEBUG
+// console.log('API Base URL:', process.env.VUE_APP_API_BASE_URL || 'http://localhost:4467/api'); // DEBUG
 
 // Add token to requests if available
 api.interceptors.request.use(
@@ -37,6 +37,5 @@ export function getProfileImageUrl(userId) {
   const apiBaseUrl = process.env.VUE_APP_API_BASE_URL || 'http://localhost:4467/api';
   return `${apiBaseUrl}/user/profile/image/${userId}`;  
 }
-console.log('Fetching profile image from:', getProfileImageUrl(1)); //DEBUG
 
 export default api;

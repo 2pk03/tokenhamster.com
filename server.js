@@ -56,18 +56,18 @@ async function ensureSecrets() {
     // Handle optional secrets
     if (!SECRET_KEY) {
         SECRET_KEY = crypto.randomBytes(64).toString('hex');
-        console.log('[INFO] JWT secret created dynamically.');
+        // console.log('[INFO] JWT secret created dynamically.'); // DEBUG
         secretsUpdated = true;
     }
 
     // Update .env file if optional secrets were generated
     if (secretsUpdated) {
-        console.log('[INFO] Updating .env file with new secrets...');
+        // console.log('[INFO] Updating .env file with new secrets...'); // DEBUG
         const envContent = Object.entries({ SECRET_KEY })
             .map(([key, value]) => `${key}=${value}`)
             .join('\n');
         fs.writeFileSync('.env', envContent, { flag: 'a' }); // Append to .env
-        console.log('[INFO] .env file updated successfully.');
+        // console.log('[INFO] .env file updated successfully.'); // DEBUG
     }
 }
 

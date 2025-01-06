@@ -32,13 +32,13 @@ router.beforeEach((to, from, next) => {
 
     // Handle backend-delegated routes
     if (backendRoutes.includes(to.path)) {
-        console.log(`Delegating ${to.path} to backend.`);
+        // console.log(`Delegating ${to.path} to backend.`); // DEBUG
         window.location.href = to.fullPath; // Redirect the browser to the backend
         return; // Prevent further Vue Router processing
     }
 
     const isAuthenticated = store.getters['auth/isAuthenticated'];
-    console.log(`Route Guard: Navigating to ${to.path}, Authenticated: ${isAuthenticated}`);
+    // console.log(`Route Guard: Navigating to ${to.path}, Authenticated: ${isAuthenticated}`); // DEBUG
 
     // Redirect unauthenticated users trying to access protected routes
     if (to.meta.requiresAuth && !isAuthenticated) {

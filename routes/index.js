@@ -19,7 +19,7 @@ const loadRoutes = (dir, prefix = '') => {
       const routeName = `${prefix}/${entry.name.replace('.js', '')}`;
       
       if (routeName.includes('/auth')) {
-        console.log(`Registering public API route: ${routeName}`); 
+        console.log(`Registering public API route: ${routeName}`);  
         router.use(routeName, route); // Public routes like auth (skip authentication)
       } else {
         console.log(`Registering protected API route: ${routeName}`);
