@@ -2,9 +2,9 @@
   <div class="page-container">
     <div class="default-box">
       <div class="profile-section">
-    <img v-if="profilePictureUrl" :src="profilePictureUrl" alt="Profile Picture" class="profile-picture" />
-    <p v-else>Loading image...</p>
-  </div>
+        <img v-if="profilePictureUrl" :src="profilePictureUrl" alt="Profile Picture" class="profile-picture" />
+        <p v-else>Loading image...</p>
+      </div>
       <div class="audit-log">
         <p><strong>Username:</strong> {{ profile.username }}</p>
         <p><strong>Email:</strong> {{ profile.email }}</p>
@@ -115,28 +115,31 @@ export default {
   methods: {
     async fetchProfile() {
       try {
-        const response = await api.get("/user/profile/");
-        this.profile = response.data;
-
-        // Fetch the profile picture
-        this.fetchProfilePicture(response.data.profilePicture);
+        const response = await api.get('/user/profile'); // Adjust endpoint if needed
+        const userId = response.data.id;
+        if (userId) {
+          this.fetchProfilePicture(userId);
+        }
       } catch (error) {
-        console.error("Error fetching profile data:", error);
+        console.error('Error fetching profile:', error);
       }
     },
-    async fetchProfilePicture() {
+
+    async fetchProfilePicture(userId) {
       try {
-        // Use getProfileImageUrl to construct the URL
-        const url = getProfileImageUrl(this.userId);
+        const url = getProfileImageUrl(userId); // Use utility from api.js
         const response = await api.get(url, { responseType: 'blob' });
         this.profilePictureUrl = URL.createObjectURL(response.data);
       } catch (error) {
         console.error('Error fetching profile picture:', error);
       }
     },
+    getUserId() {
+      return localStorage.getItem('userId') || null;
+    },
     created() {
-    this.fetchProfilePicture();
-  },
+      this.fetchProfile();
+    },
 
     // portfolio actions
     async downloadPortfolio() {
@@ -226,19 +229,19 @@ export default {
     },
     // download audit logs
     async downloadAuditLog() {
-    try {
-      const response = await api.get('/user/profile/audit/export', { responseType: 'blob' });
-      const url = URL.createObjectURL(response.data);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = 'audit_log.csv';
-      link.click();
-      URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error('Error downloading audit log:', error.message);
-      alert('Failed to download audit log. Please try again.');
-    }
-  },
+      try {
+        const response = await api.get('/user/profile/audit/export', { responseType: 'blob' });
+        const url = URL.createObjectURL(response.data);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'audit_log.csv';
+        link.click();
+        URL.revokeObjectURL(url);
+      } catch (error) {
+        console.error('Error downloading audit log:', error.message);
+        alert('Failed to download audit log. Please try again.');
+      }
+    },
     // make date/time more readable
     getFormattedDetails(log) {
       try {

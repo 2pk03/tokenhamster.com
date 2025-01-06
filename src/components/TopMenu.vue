@@ -15,7 +15,7 @@
           <router-link to="/portfolio"><button class="menu-button add-token-button">Portfolio</button></router-link>
         </li>
         <li class="menu-dropdown profile-container-menu">
-          <img ref="profilePicture" :src="profilePicture" alt="User Profile" class="profile-picture-menu"
+          <img ref="profilePicture" :src="profilePictureUrl" alt="User Profile" class="profile-picture-menu"
             @click="toggleDropdown" />
           <ul class="dropdown-content" ref="dropdown" v-show="isDropdownOpen">
             <li>
@@ -82,6 +82,7 @@
 </template>
 
 <script>
+import { getProfileImageUrl } from '@/api';
 import api from "@/api";
 import EventBus from "@/eventBus";
 
@@ -99,7 +100,7 @@ export default {
       amountBought: null,
       purchaseCurrency: "USD",
       isDropdownOpen: false,
-      profilePicture: "/logo.webp",
+      profilePictureUrl: "/logo.webp",
       activeUsers: 0,
       lastPoll: "N/A",
     };
@@ -211,40 +212,39 @@ export default {
         alert("Failed to add token. Please try again.");
       }
     },
-    async loadUserProfile() {
+    async fetchProfilePicture(userId) {
       try {
-        const response = await api.get("/user/profile");
-
-        // Fetch and load the profile picture
-        this.loadProfilePicture(response.data.profilePicture);
+        const url = getProfileImageUrl(userId); // Construct URL
+        const response = await api.get(url, { responseType: 'blob' }); // Fetch image as blob
+        this.profilePictureUrl = URL.createObjectURL(response.data); // Create blob URL
       } catch (error) {
-        console.error("Error loading profile data:", error);
-        this.profilePicture = "/logo.webp";
+        console.error('Error fetching user image:', error);
       }
     },
-    async loadProfilePicture(profilePictureUrl) {
+    async loadUserImage() {
       try {
-        if (!profilePictureUrl) {
-          this.profilePicture = "/logo.webp";
-          return;
+        // Fetch user profile to get userId
+        const response = await api.get('/user/profile');
+        const userId = response.data.id;
+        if (userId) {
+          this.fetchProfilePicture(userId);
         }
-
-        const response = await api.get(profilePictureUrl, { responseType: "blob" });
-        this.profilePicture = URL.createObjectURL(response.data);
       } catch (error) {
-        console.error("Error loading profile picture:", error);
-        this.profilePicture = "/logo.webp";
+        console.error('Error loading user profile:', error);
       }
+    },
+    created() {
+      this.loadUserImage();
     },
     goToProfile() {
       this.$router.push("/profile");
     },
   },
   mounted() {
-    this.loadUserProfile();
+    this.loadUserImage();
     this.fetchActiveUsers();
     this.fetchLastPoll();
-    EventBus.on("userLoggedIn", this.loadUserProfile);
+    EventBus.on("userLoggedIn", this.loadUserImage);
 
     // Refresh active users every minute
     setInterval(() => {
