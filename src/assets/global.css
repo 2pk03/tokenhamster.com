@@ -39,8 +39,6 @@ body {
     color: var(--text-color);
     background-color: var(--background-color);
     margin: 0 auto;
-    width: 96%;
-    margin-top: 20px;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     box-sizing: border-box;
@@ -487,7 +485,6 @@ textarea:focus {
     list-style: none;
     display: flex;
     justify-content: flex-end;
-    /* Align items to the right */
     align-items: center;
     margin: 0;
     padding: 0;
@@ -869,7 +866,7 @@ button-container {
     min-width: 150px;
     z-index: 10;
     top: calc(100% + 10px);
-    left: 50%;
+    left: 0%;
     transform: translate(-50%)
 }
 
@@ -1473,47 +1470,4 @@ button-container {
     color: var(--text-color);
     margin-bottom: var(--spacing-large);
 }
-
-/* Hamster Image Styling */
-.hamster-image-container {
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    width: 100%; /* Full width */
-    overflow: hidden; /* Ensure any extra content doesn't appear */
-    z-index: -1; /* Push behind content */
-  }
-  
-  .hamster-image {
-    width: 100%; /* Scale to full width */
-    height: auto; /* Maintain aspect ratio */
-    opacity: 1; /* Fully visible at the bottom */
-    position: relative;
-    /* animation: fadeOutToTop 10s ease-in-out infinite; /* Optional animation for effect */
-  }
-  
-  /* Gradient fade effect */
-  .hamster-image-container::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(to top, rgba(255, 255, 255, 0) 60%, white 100%);
-    z-index: 1; /* Ensure it overlays the image */
-    pointer-events: none; /* Allow clicks through the gradient */
-  }
-  
-  /* Optional: Keyframe animation to fade-out effect */
-  @keyframes fadeOutToTop {
-    0% {
-      transform: translateY(0%);
-      opacity: 1;
-    }
-    100% {
-      transform: translateY(-20%);
-      opacity: 0.7;
-    }
-  }
   

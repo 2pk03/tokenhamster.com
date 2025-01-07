@@ -1,12 +1,12 @@
 // services/pollingService.js
 
 const axios = require('axios');
-const { db, updateAggregatedData } = require('../database');
+const { db, calculateAndSavePortfolioValues, getAllActiveUserIds } = require('../database');
 const { API_KEY_CRYPTOCOMPARE, CRYPTOCOMPARE_BASE_URL } = require('../config');
 
 const pollingIntervals = {};
-const DEV_POLLING_INTERVAL = 60 * 1000; 
-const PROD_POLLING_INTERVAL = 5 * 60 * 1000; 
+const DEV_POLLING_INTERVAL = 60 * 1000;
+const PROD_POLLING_INTERVAL = 5 * 60 * 1000;
 
 // Use the correct interval based on the environment
 const DEFAULT_POLLING_INTERVAL = process.env.DEV === '1' ? DEV_POLLING_INTERVAL : PROD_POLLING_INTERVAL;
@@ -31,7 +31,7 @@ axios.interceptors.request.use(
         console.error('Request Error:', error);
         return Promise.reject(error);
     }
-); 
+);
 
 // Fetch crypto price data
 async function fetchCryptoPrices(fsyms, tsyms) {
@@ -125,7 +125,6 @@ const getTrackedSymbolsAndCurrencies = () => {
     });
 };
 
-// Poll prices for all symbols and currencies in batches of max 100
 async function pollPricesForActiveTokens() {
     try {
         const activeTokens = await getTrackedSymbolsAndCurrencies();
@@ -134,23 +133,22 @@ async function pollPricesForActiveTokens() {
             return;
         }
 
-        // Calculate the number of batches needed
         const batchSize = 100;
         const totalBatches = Math.ceil(activeTokens.length / batchSize);
 
-        // Process each batch by its index
         for (let batchIndex = 0; batchIndex < totalBatches; batchIndex++) {
             const batchStart = batchIndex * batchSize;
             const batchEnd = batchStart + batchSize;
             const batch = activeTokens.slice(batchStart, batchEnd);
 
-            const fsyms = batch.join('BTC,');
+            const fsyms = batch.join(',');
             const tsyms = 'EUR,USD,BTC';
 
-            // Fetch prices for the current batch
             const response = await fetchCryptoPrices(fsyms, tsyms);
             if (response) {
-                // Process and save each token's data from the response
+                console.log('Fetched prices for batch:', batch); // Debugging
+
+                // Save individual token data
                 Object.entries(response).forEach(([symbol, prices]) => {
                     if (prices && typeof prices === 'object' && 'EUR' in prices && 'USD' in prices && 'BTC' in prices) {
                         savePolledData({
@@ -159,9 +157,9 @@ async function pollPricesForActiveTokens() {
                             prices,
                         });
                     } else {
-                        console.warn(`Incomplete or missing data for ${symbol}. Skipping.`);
+                        console.warn(`Incomplete data for ${symbol}. Skipping.`);
                     }
-                });
+                });                
             } else {
                 console.error(`Failed to fetch price data for batch: ${fsyms}`);
             }
@@ -337,7 +335,7 @@ const refreshPolling = async () => {
         console.error('Error refreshing polling tokens:', err.message);
     }
 };
-  
+
 
 // Start polling for all active cryptos and currencies
 function startPolling() {
@@ -345,9 +343,32 @@ function startPolling() {
 
     // Perform initial batch polling
     refreshPolling();
+    startPortfolioCalculation();
 
     // Periodic batch polling
     setInterval(refreshPolling, DEFAULT_POLLING_INTERVAL);
+}
+
+function startPortfolioCalculation() {
+    console.log('Starting portfolio value calculation service...');
+
+    const refreshPortfolioValues = async () => {
+        try {
+            const userIds = await getAllActiveUserIds();
+            for (const userId of userIds) {
+                console.log(`Calculating portfolio values for user ${userId}...`); // DEBUG
+                await calculateAndSavePortfolioValues(userId);
+            }
+        } catch (err) {
+            console.error('Error refreshing portfolio values:', err.message);
+        }
+    };
+
+    // Perform initial portfolio value calculation
+    refreshPortfolioValues();
+
+    // Periodic portfolio value calculation
+    setInterval(refreshPortfolioValues, DEFAULT_POLLING_INTERVAL);
 }
 
 // Stop polling for all cryptos and currencies
@@ -363,4 +384,5 @@ module.exports = {
     startPolling,
     stopPolling,
     addTokenToPolling,
+    pollPricesForActiveTokens
 };

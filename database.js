@@ -97,6 +97,18 @@ function initializeDatabase() {
         `);
 
         db.run(`
+                CREATE TABLE IF NOT EXISTS portfolio_values (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                portfolio_id INTEGER NOT NULL,
+                value REAL NOT NULL,
+                currency TEXT NOT NULL,
+                last_updated DATETIME NOT NULL,
+                UNIQUE (portfolio_id, currency)
+            )
+        `);
+
+        db.run(`
             CREATE TABLE IF NOT EXISTS user_cryptos (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id INTEGER NOT NULL,
@@ -589,7 +601,7 @@ function disableTwoFactor(userId, callback) {
             console.log(`2FA disabled for user ID: ${userId}`);
             if (callback) callback(null);
         }
-    }); 
+    });
 }
 
 function setTemporaryTwoFactorData(userId, secret, recoveryPhrase, callback) {
@@ -758,6 +770,123 @@ db.all(`PRAGMA table_info(historical_data);`, (err, rows) => {
     }
 });
 
+// get all userid's
+async function getAllActiveUserIds() {
+    const sql = `
+        SELECT DISTINCT user_id
+        FROM portfolios
+        WHERE deleted = 0;
+    `;
+    return new Promise((resolve, reject) => {
+        db.all(sql, [], (err, rows) => {
+            if (err) {
+                console.error(`SQL Error (Fetching Active User IDs): ${err.message}`); // DEBUG
+                reject(err);
+            } else {
+                const userIds = rows.map(row => row.user_id);
+                console.log('Fetched Active User IDs:', userIds); // DEBUG
+                resolve(userIds);
+            }
+        });
+    });
+}
+
+
+// portfolio stores values like value per poll
+async function calculateAndSavePortfolioValues(userId) {
+    try {
+        // Fetch all portfolio tokens and quantities for the user
+        const sqlPortfolioTokens = `
+            SELECT uc.crypto_symbol, uc.amount, p.id AS portfolio_id
+            FROM user_cryptos uc
+            INNER JOIN portfolios p ON uc.portfolio_id = p.id
+            WHERE p.user_id = ? AND p.deleted = 0 AND uc.amount > 0;
+        `;
+        const portfolioTokens = await new Promise((resolve, reject) => {
+            db.all(sqlPortfolioTokens, [userId], (err, rows) => {
+                if (err) {
+                    return reject(err);
+                }
+                resolve(rows);
+            });
+        });
+
+        if (!portfolioTokens.length) {
+            return;
+        }
+
+        // Fetch current prices for all tokens
+        const sqlCurrentPrices = `
+            SELECT crypto_symbol, currency, price
+            FROM current_prices
+            WHERE crypto_symbol IN (${portfolioTokens.map(() => '?').join(',')});
+        `;
+        const currentPrices = await new Promise((resolve, reject) => {
+            db.all(
+                sqlCurrentPrices,
+                portfolioTokens.map(token => token.crypto_symbol),
+                (err, rows) => {
+                    if (err) {
+                        return reject(err);
+                    }
+                    resolve(rows);
+                }
+            );
+        });
+
+        // Organize prices by symbol and currency
+        const priceMap = {};
+        currentPrices.forEach(({ crypto_symbol, currency, price }) => {
+            if (!priceMap[crypto_symbol]) priceMap[crypto_symbol] = {};
+            priceMap[crypto_symbol][currency] = price;
+        });
+
+        // Calculate portfolio values for each portfolio
+        const portfolioValues = {};
+        portfolioTokens.forEach(({ crypto_symbol, amount, portfolio_id }) => {
+            if (!portfolioValues[portfolio_id]) {
+                portfolioValues[portfolio_id] = { EUR: 0, USD: 0 };
+            }
+
+            const tokenPrices = priceMap[crypto_symbol] || {};
+            const tokenQuantity = amount || 0;
+            const priceEUR = tokenPrices.EUR || 0;
+            const priceUSD = tokenPrices.USD || 0;
+
+            portfolioValues[portfolio_id].EUR += priceEUR * tokenQuantity;
+            portfolioValues[portfolio_id].USD += priceUSD * tokenQuantity;
+        });
+
+        // Write portfolio values into the database
+        const timestamp = new Date().toISOString();
+        const queries = [];
+        Object.entries(portfolioValues).forEach(([portfolio_id, values]) => {
+            queries.push([userId, portfolio_id, values.EUR, 'EUR', timestamp]);
+            queries.push([userId, portfolio_id, values.USD, 'USD', timestamp]);
+        });
+
+        const sqlInsertValues = `
+            INSERT INTO portfolio_values (user_id, portfolio_id, value, currency, last_updated)
+            VALUES ${queries.map(() => '(?, ?, ?, ?, ?)').join(',')}
+            ON CONFLICT (portfolio_id, currency) DO UPDATE SET
+                value = excluded.value,
+                last_updated = excluded.last_updated;
+        `;
+
+        await new Promise((resolve, reject) => {
+            db.run(sqlInsertValues, queries.flat(), (err) => {
+                if (err) {
+                    return reject(err);
+                }
+                resolve();
+            });
+        });
+
+    } catch (err) {
+        console.error(`Error calculating portfolio values for user ${userId}:`, err.message);
+    }
+}
+
 // check db health
 function checkDatabaseHealth() {
     db.get('SELECT 1;', (err) => {
@@ -798,4 +927,6 @@ module.exports = {
     deleteTemporaryTwoFactorData,
     getTwoFactorRecoverySeed,
     updateAggregatedData,
+    calculateAndSavePortfolioValues,
+    getAllActiveUserIds,
 };
