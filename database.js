@@ -152,6 +152,7 @@ function initializeDatabase() {
                 crypto_symbol TEXT NOT NULL,
                 date_time DATETIME NOT NULL,
                 price_usd REAL,
+                price_eur REAL,
                 volume REAL,
                 market_cap REAL,
                 UNIQUE (crypto_symbol, date_time)
@@ -709,6 +710,53 @@ function updateAggregatedData(cryptoSymbol, callback) {
         if (callback) callback(err);
     });
 }
+
+// here are features and further optimization which needs to go live in PROD
+
+// `price_btc` column in `current_prices`
+db.all(`PRAGMA table_info(current_prices);`, (err, rows) => {
+    if (err) {
+        console.error('Error checking current_prices table schema:', err.message);
+    } else if (!rows.find(col => col.name === 'price_btc')) {
+        db.run(`ALTER TABLE current_prices ADD COLUMN price_btc REAL;`, (alterErr) => {
+            if (alterErr) {
+                console.error('Error adding price_btc column to current_prices:', alterErr.message);
+            } else {
+                console.log('price_btc column added to current_prices table.');
+            }
+        });
+    }
+});
+
+// `price_btc` column in `historical_data`
+db.all(`PRAGMA table_info(historical_data);`, (err, rows) => {
+    if (err) {
+        console.error('Error checking historical_data table schema:', err.message);
+    } else if (!rows.find(col => col.name === 'price_btc')) {
+        db.run(`ALTER TABLE historical_data ADD COLUMN price_btc REAL;`, (alterErr) => {
+            if (alterErr) {
+                console.error('Error adding price_btc column to historical_data:', alterErr.message);
+            } else {
+                console.log('price_btc column added to historical_data table.');
+            }
+        });
+    }
+});
+
+// `price_eur` column in `historical_data`
+db.all(`PRAGMA table_info(historical_data);`, (err, rows) => {
+    if (err) {
+        console.error('Error checking historical_data table schema:', err.message);
+    } else if (!rows.find(col => col.name === 'price_eur')) {
+        db.run(`ALTER TABLE historical_data ADD COLUMN price_eur REAL;`, (alterErr) => {
+            if (alterErr) {
+                console.error('Error adding price_eur column to historical_data:', alterErr.message);
+            } else {
+                console.log('price_eur column added to historical_data table.');
+            }
+        });
+    }
+});
 
 // check db health
 function checkDatabaseHealth() {

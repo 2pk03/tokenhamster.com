@@ -5,89 +5,98 @@ const { db, updateAggregatedData } = require('../database');
 const { API_KEY_CRYPTOCOMPARE, CRYPTOCOMPARE_BASE_URL } = require('../config');
 
 const pollingIntervals = {};
-const DEV_POLLING_INTERVAL = 60 * 60 * 1000; 
+const DEV_POLLING_INTERVAL = 60 * 1000; 
 const PROD_POLLING_INTERVAL = 5 * 60 * 1000; 
 
 // Use the correct interval based on the environment
 const DEFAULT_POLLING_INTERVAL = process.env.DEV === '1' ? DEV_POLLING_INTERVAL : PROD_POLLING_INTERVAL;
 
+// Add an interceptor for requests
+axios.interceptors.request.use(
+    function (config) {
+        // Log the full API call details
+        console.log('API Request:', {
+            method: config.method,
+            url: config.url,
+            params: config.params,
+            data: config.data,
+            headers: config.headers
+        });
+
+        return config;
+    },
+    function (error) {
+        // Do something with request error
+        console.error('Request Error:', error);
+        return Promise.reject(error);
+    }
+);
 
 // Fetch crypto price data
-async function fetchCryptoPrice(cryptoSymbol, currency = 'USD') {
+async function fetchCryptoPrices(fsyms, tsyms) {
     try {
-        // console.log(`Fetching price for ${cryptoSymbol} in ${currency}...`); // DEBUG
-        const response = await axios.get(`${CRYPTOCOMPARE_BASE_URL}/pricemultifull`, {
-            params: {
-                fsyms: cryptoSymbol,
-                tsyms: currency,
-                api_key: API_KEY_CRYPTOCOMPARE,
-            },
+        const response = await axios.get(`${CRYPTOCOMPARE_BASE_URL}/pricemulti`, {
+            params: { fsyms, tsyms, api_key: API_KEY_CRYPTOCOMPARE },
         });
-        const priceData = response.data.RAW[cryptoSymbol]?.[currency] || null;
-
-        if (priceData) {
-            // console.log(`Price data for ${cryptoSymbol} (${currency}):`, priceData); // DEBUG
-            return {
-                crypto_symbol: cryptoSymbol,
-                currency,
-                price: priceData.PRICE,
-                volume: priceData.VOLUME24HOUR,
-                market_cap: priceData.MKTCAP,
-                timestamp: new Date().toISOString(),
-            };
-        }
-
-        console.warn(`No price data available for ${cryptoSymbol} (${currency})`);
-        return null;
+        console.log('API Response:', JSON.stringify(response.data, null, 2)); // Debugging
+        return response.data;
     } catch (err) {
-        console.error(`Error fetching price for ${cryptoSymbol} (${currency}):`, err.message);
+        console.error(`Error fetching prices for fsyms=[${fsyms}] and tsyms=[${tsyms}]:`, err.message);
         return null;
     }
 }
 
 // Save polled data into the database
-function savePolledData({ crypto_symbol, currency, price, timestamp, volume, market_cap }) {
-    // console.log(`Saving data for ${crypto_symbol} (${currency})`); // DEBUG
+function savePolledData({ crypto_symbol, timestamp, prices }) {
+    if (!prices || typeof prices !== 'object') {
+        console.error(`Invalid prices data for ${crypto_symbol}. Skipping database update.`);
+        return;
+    }
 
-    // Update current_prices
-    const updateCurrentQuery = `
+    const { EUR, USD, BTC } = prices;
+
+    const updateQuery = `
         INSERT INTO current_prices (crypto_symbol, currency, price, last_updated)
-        VALUES (?, ?, ?, datetime('now'))
+        VALUES (?, 'EUR', ?, ?),
+               (?, 'USD', ?, ?),
+               (?, 'BTC', ?, ?)
         ON CONFLICT (crypto_symbol, currency) DO UPDATE SET
         price = excluded.price,
-        last_updated = excluded.last_updated
+        last_updated = excluded.last_updated;
     `;
-    db.run(updateCurrentQuery, [crypto_symbol, currency, price], (err) => {
-        if (err) {
-            console.error(`Error saving to current_prices:`, err.message);
-        } else {
-            console.log(`Updated current_prices for ${crypto_symbol} (${currency})`); 
-        }
-    });
 
-    // Insert into historical_data
-    const insertHistoricalQuery = `
-        INSERT INTO historical_data (crypto_symbol, date_time, price_usd, volume, market_cap)
-        VALUES (?, datetime('now'), ?, ?, ?)
+    db.run(
+        updateQuery,
+        [crypto_symbol, EUR, timestamp, crypto_symbol, USD, timestamp, crypto_symbol, BTC, timestamp],
+        (err) => {
+            if (err) {
+                console.error(`Error saving to current_prices for ${crypto_symbol}:`, err.message);
+            } else {
+                console.log(`Saved current prices for ${crypto_symbol}.`);
+            }
+        }
+    );
+
+    const historicalQuery = `
+        INSERT INTO historical_data (crypto_symbol, date_time, price_usd, price_eur, price_btc)
+        VALUES (?, ?, ?, ?, ?)
         ON CONFLICT (crypto_symbol, date_time) DO UPDATE SET
         price_usd = excluded.price_usd,
-        volume = excluded.volume,
-        market_cap = excluded.market_cap
+        price_eur = excluded.price_eur,
+        price_btc = excluded.price_btc;
     `;
-    db.run(insertHistoricalQuery, [crypto_symbol, price, volume, market_cap], (err) => {
-        if (err) {
-            console.error(`Error saving to historical_data:`, err.message);
-        } else {
-            console.log(`Inserted into historical_data for ${crypto_symbol}`);
 
-            // Update aggregated data for the symbol
-            updateAggregatedData(crypto_symbol, (err) => {
-                if (err) {
-                    console.warn(`Failed to update aggregated data for ${crypto_symbol}`);
-                }
-            });
+    db.run(
+        historicalQuery,
+        [crypto_symbol, timestamp, USD, EUR, BTC],
+        (err) => {
+            if (err) {
+                console.error(`Error saving to historical_data for ${crypto_symbol}:`, err.message);
+            } else {
+                console.log(`Saved historical data for ${crypto_symbol}.`);
+            }
         }
-    });
+    );
 }
 
 // Fetch symbols and currencies from the database
@@ -115,38 +124,49 @@ const getTrackedSymbolsAndCurrencies = () => {
     });
 };
 
-// Poll prices for all symbols and currencies
-async function pollPricesForSymbolsAndCurrencies() {
+// Poll prices for all symbols and currencies in batches of max 100
+async function pollPricesForActiveTokens() {
     try {
-        const trackedPairs = await getTrackedSymbolsAndCurrencies();
-        const uniquePairs = [
-            ...new Map(
-                trackedPairs.map(pair => [
-                    `${pair.crypto_symbol}-${pair.currency}`,
-                    pair,
-                ])
-            ).values(),
-        ];
+        const activeTokens = await getTrackedSymbolsAndCurrencies();
+        if (!activeTokens.length) {
+            console.warn('No active tokens found for polling.');
+            return;
+        }
 
-        // console.log("Polling unique pairs:", uniquePairs); // DEBUG
+        // Calculate the number of batches needed
+        const batchSize = 100;
+        const totalBatches = Math.ceil(activeTokens.length / batchSize);
 
-        for (const { crypto_symbol, currency } of uniquePairs) {
-            const data = await fetchCryptoPrice(crypto_symbol, currency);
-            if (data) {
-                savePolledData(data);
+        // Process each batch by its index
+        for (let batchIndex = 0; batchIndex < totalBatches; batchIndex++) {
+            const batchStart = batchIndex * batchSize;
+            const batchEnd = batchStart + batchSize;
+            const batch = activeTokens.slice(batchStart, batchEnd);
 
-                // Update aggregated data for the symbol
-                updateAggregatedData(crypto_symbol, (err) => {
-                    if (err) {
-                        console.warn(`Failed to update aggregated data for ${crypto_symbol}`);
+            const fsyms = batch.join(',');
+            const tsyms = 'EUR,USD,BTC';
+
+            // Fetch prices for the current batch
+            const response = await fetchCryptoPrices(fsyms, tsyms);
+            if (response) {
+                // Process and save each token's data from the response
+                Object.entries(response).forEach(([symbol, prices]) => {
+                    if (prices && typeof prices === 'object' && 'EUR' in prices && 'USD' in prices && 'BTC' in prices) {
+                        savePolledData({
+                            crypto_symbol: symbol,
+                            timestamp: new Date().toISOString(),
+                            prices,
+                        });
+                    } else {
+                        console.warn(`Incomplete or missing data for ${symbol}. Skipping.`);
                     }
                 });
             } else {
-                console.warn(`No valid data received for ${crypto_symbol} (${currency})`);
+                console.error(`Failed to fetch price data for batch: ${fsyms}`);
             }
         }
     } catch (err) {
-        console.error('Error polling prices:', err.message);
+        console.error('Error polling prices for active tokens:', err.message);
     }
 }
 
@@ -154,21 +174,21 @@ async function pollPricesForSymbolsAndCurrencies() {
 async function addTokenToPolling(cryptoSymbol, currency) {
     const pollingKey = `${cryptoSymbol}-${currency}`;
     if (pollingIntervals[pollingKey]) {
-        // console.log(`Polling already active for ${cryptoSymbol} (${currency}).`); // DEBUG
-        return;
+        return; // Skip if already polling
     }
 
-    // console.log(`Adding ${cryptoSymbol} (${currency}) to polling.`); // DEBUG
-    fetchAndSaveHistoricalData(cryptoSymbol); // Ensure historical data is fetched.
+    console.log(`Adding ${cryptoSymbol} (${currency}) to polling.`);
 
     pollingIntervals[pollingKey] = setInterval(async () => {
-        // console.log(`Polling for ${cryptoSymbol} in ${currency}...`); // DEBUG
-        const data = await fetchCryptoPrice(cryptoSymbol, currency);
-        if (data) {
-            // console.log(`Fetched valid data for ${cryptoSymbol} (${currency}):`, data); // DEBUG
-            savePolledData(data);
+        const data = await fetchCryptoPrices(cryptoSymbol, currency);
+        if (data && data[cryptoSymbol]) {
+            savePolledData({
+                crypto_symbol: cryptoSymbol,
+                timestamp: new Date().toISOString(),
+                prices: data[cryptoSymbol],
+            });
         } else {
-            console.warn(`No valid data received for ${cryptoSymbol} (${currency})`);
+            console.warn(`No valid data received for ${cryptoSymbol} (${currency}).`);
         }
     }, DEFAULT_POLLING_INTERVAL);
 
@@ -262,60 +282,64 @@ async function fetchAndSaveHistoricalData(cryptoSymbol) {
     });
 }
 
+const refreshPolling = async () => {
+    try {
+        const trackedPairs = await getTrackedSymbolsAndCurrencies();
+
+        if (trackedPairs.length === 0) {
+            console.warn('No active tokens found for polling. Adding placeholder BTC/USD.');
+            if (!pollingIntervals['BTC-USD']) {
+                addTokenToPolling('BTC', 'USD'); // Add placeholder token if no active tokens
+            }
+            return;
+        }
+
+        // Group tokens into batches for batch polling
+        const uniqueSymbols = [...new Set(trackedPairs.map(({ crypto_symbol }) => crypto_symbol))];
+        const batches = [];
+        for (let i = 0; i < uniqueSymbols.length; i += 100) {
+            batches.push(uniqueSymbols.slice(i, i + 100));
+        }
+
+        // Fetch and save prices for each batch
+        for (const batch of batches) {
+            const fsyms = batch.join(',');
+            const tsyms = 'EUR,USD,BTC';
+            const response = await fetchCryptoPrices(fsyms, tsyms);
+
+            if (response) {
+                Object.entries(response).forEach(([symbol, prices]) => {
+                    if (prices.EUR && prices.USD && prices.BTC) {
+                        savePolledData({
+                            crypto_symbol: symbol,
+                            timestamp: new Date().toISOString(),
+                            prices: {
+                                EUR: prices.EUR,
+                                USD: prices.USD,
+                                BTC: prices.BTC,
+                            },
+                        });
+                    } else {
+                        console.warn(`Incomplete data for ${symbol}. Skipping.`);
+                    }
+                });
+            } else {
+                console.error(`Failed to fetch prices for batch: ${fsyms}`);
+            }
+        }
+    } catch (err) {
+        console.error('Error refreshing polling tokens:', err.message);
+    }
+};   
+
 // Start polling for all active cryptos and currencies
 function startPolling() {
     console.log('Starting polling service...');
 
-    const refreshPolling = async () => {
-        try {
-            const trackedPairs = await getTrackedSymbolsAndCurrencies();
+    // Perform initial batch polling
+    refreshPolling();
 
-            if (trackedPairs.length === 0) {
-                console.warn('No cryptos found to poll. Ensuring placeholder token BTC/USD is polled.');
-                if (!pollingIntervals['BTC-USD']) {
-                    addTokenToPolling('BTC', 'USD'); // Add placeholder token if not already added
-                }
-                return;
-            }
-
-            // Add any new tokens to polling
-            trackedPairs.forEach(({ crypto_symbol, currency }) => {
-                const pollingKey = `${crypto_symbol}-${currency}`;
-                if (!pollingIntervals[pollingKey]) {
-                    console.log(`Adding new token to polling: ${crypto_symbol} (${currency})`);
-                    addTokenToPolling(crypto_symbol, currency);
-                }
-            });
-        } catch (err) {
-            console.error('Error refreshing polling tokens:', err.message);
-        }
-    };
-
-    // Initial poll
-    db.all(`SELECT DISTINCT crypto_symbol, purchase_currency FROM user_cryptos`, [], (err, rows) => {
-        if (err) {
-            console.error('Error fetching active cryptos for polling:', err.message);
-            return;
-        }
-
-        if (rows.length === 0) {
-            console.warn('No cryptos found to poll. Adding placeholder tokens for BTC/USD.');
-            addTokenToPolling('BTC', 'USD'); // Add placeholder token initially
-            return;
-        }
-
-        // console.log('Fetched cryptos for polling:', rows); // DEBUG
-
-        // Start polling for each unique token-currency pair
-        rows.forEach(({ crypto_symbol, purchase_currency }) => {
-            const pollingKey = `${crypto_symbol}-${purchase_currency}`;
-            if (!pollingIntervals[pollingKey]) {
-                addTokenToPolling(crypto_symbol, purchase_currency);
-            }
-        });
-    });
-
-    // Periodic refresh every 5 minutes
+    // Periodic batch polling
     setInterval(refreshPolling, DEFAULT_POLLING_INTERVAL);
 }
 
@@ -331,5 +355,5 @@ function stopPolling() {
 module.exports = {
     startPolling,
     stopPolling,
-    addTokenToPolling, // Expose to allow dynamic additions
+    addTokenToPolling,
 };

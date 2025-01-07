@@ -1,6 +1,6 @@
 <template>
   <div class="login-container">
-    <img src="/images/tokenhamster.webp" alt="Hamster Background" class="background-image" />    
+    <img src="/images/tokenhamster.webp" alt="TokenHamster" class="background-image" />    
     <div class="login-page">
       <div class="center-content">
         <h1 class="main-title">The TokenHamster</h1>
@@ -307,29 +307,19 @@ export default {
 };
 </script>
 <style scoped>
+
+body {
+    width: 100% !important;    
+}
+
 .login-container {
+  position: relative;
   display: flex;
   justify-content: center;
   align-items: center;
   height: 100vh;
   width: 100%;
-  background-size: cover; 
-  background-position: center; 
-  background-repeat: no-repeat; 
-}
-
-.login-page {
-  max-width: 500px;
-  width: 100%;
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-  background-color: rgba(255, 255, 255, 0.8);
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  padding: 20px;
+  overflow: hidden;
 }
 
 .background-image {
@@ -338,7 +328,22 @@ export default {
   left: 0;
   width: 100%;
   height: 100%;
-  object-fit: cover; /* Ensure the image covers the container */
-  z-index: -1; /* Send the image to the background */
+  object-fit: cover;
+  z-index: -1;
+}
+
+.login-page {
+  max-width: 500px;
+  width: 100%;
+  border: 1px solid orange;
+  border-radius: 8px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  background-color: rgba(255, 255, 255, 0.8);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+  z-index: 1;
 }
 </style>
