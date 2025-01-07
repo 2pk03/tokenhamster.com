@@ -11,7 +11,8 @@ const PROD_POLLING_INTERVAL = 5 * 60 * 1000;
 // Use the correct interval based on the environment
 const DEFAULT_POLLING_INTERVAL = process.env.DEV === '1' ? DEV_POLLING_INTERVAL : PROD_POLLING_INTERVAL;
 
-// Add an interceptor for requests
+
+// Add an interceptor for requests - DEBUG - NOT FOR PROD - EXPOSES KEYS
 axios.interceptors.request.use(
     function (config) {
         // Log the full API call details
@@ -30,7 +31,7 @@ axios.interceptors.request.use(
         console.error('Request Error:', error);
         return Promise.reject(error);
     }
-);
+); 
 
 // Fetch crypto price data
 async function fetchCryptoPrices(fsyms, tsyms) {
@@ -143,7 +144,7 @@ async function pollPricesForActiveTokens() {
             const batchEnd = batchStart + batchSize;
             const batch = activeTokens.slice(batchStart, batchEnd);
 
-            const fsyms = batch.join(',');
+            const fsyms = batch.join('BTC,');
             const tsyms = 'EUR,USD,BTC';
 
             // Fetch prices for the current batch
@@ -287,26 +288,31 @@ const refreshPolling = async () => {
         const trackedPairs = await getTrackedSymbolsAndCurrencies();
 
         if (trackedPairs.length === 0) {
-            console.warn('No active tokens found for polling. Adding placeholder BTC/USD.');
+            console.warn('No cryptos found to poll. Adding placeholder BTC/USD.');
             if (!pollingIntervals['BTC-USD']) {
-                addTokenToPolling('BTC', 'USD'); // Add placeholder token if no active tokens
+                addTokenToPolling('BTC', 'USD'); // Add placeholder token if not already added
             }
             return;
         }
 
-        // Group tokens into batches for batch polling
+        // Add BTC as a default token
         const uniqueSymbols = [...new Set(trackedPairs.map(({ crypto_symbol }) => crypto_symbol))];
+        if (!uniqueSymbols.includes('BTC')) {
+            uniqueSymbols.push('BTC'); // Ensure BTC is always included
+        }
+
+        // Group tokens into batches for batch polling
         const batches = [];
         for (let i = 0; i < uniqueSymbols.length; i += 100) {
             batches.push(uniqueSymbols.slice(i, i + 100));
         }
 
-        // Fetch and save prices for each batch
+        // Fetch prices for each batch
         for (const batch of batches) {
             const fsyms = batch.join(',');
             const tsyms = 'EUR,USD,BTC';
-            const response = await fetchCryptoPrices(fsyms, tsyms);
 
+            const response = await fetchCryptoPrices(fsyms, tsyms);
             if (response) {
                 Object.entries(response).forEach(([symbol, prices]) => {
                     if (prices.EUR && prices.USD && prices.BTC) {
@@ -330,7 +336,8 @@ const refreshPolling = async () => {
     } catch (err) {
         console.error('Error refreshing polling tokens:', err.message);
     }
-};   
+};
+  
 
 // Start polling for all active cryptos and currencies
 function startPolling() {

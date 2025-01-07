@@ -133,14 +133,20 @@ export default {
     async fetchLastPoll() {
       try {
         const response = await api.get("/functional/price/current");
-
         const lastUpdated = response.data.lastUpdated;
 
-        // Format the timestamp
-        this.lastPoll = new Intl.DateTimeFormat(navigator.language, {
+        if (!lastUpdated) {
+          console.warn("No lastUpdated timestamp received.");
+          this.lastPoll = "N/A";
+          return;
+        }
+        const userLocale = navigator.language || 'en-UK';
+        const userTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Malta';
+        this.lastPoll = new Intl.DateTimeFormat(userLocale, {
           dateStyle: "short",
           timeStyle: "short",
-        }).format(new Date(`${lastUpdated}Z`));
+          timeZone: userTimeZone,
+        }).format(new Date(lastUpdated));
       } catch (error) {
         console.error("Error fetching last poll timestamp:", error);
         this.lastPoll = "N/A";
