@@ -101,7 +101,6 @@ main {
 
 /* graphs */
 .graphs-section {
-    flex: 2;
     display: flex;
     flex-direction: column;
     gap: 20px;
@@ -110,7 +109,7 @@ main {
     border: 1px solid var(--highlight-border-color);
     border-radius: 8px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    max-width: 40%;
+    width: 60%;
     box-sizing: border-box;
     overflow: hidden;
 }
@@ -129,14 +128,18 @@ main {
 
 
 .portfolio-section {
-    flex: 3;
-    padding: var(--spacing-base);
-    background: #fff;
+    display: flex;
+    flex-direction: column;
+    width: 40%;
+    overflow-x: auto;
     border: 1px solid var(--highlight-border-color);
     border-radius: 8px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     max-width: 60%;
     box-sizing: border-box;
+    margin-right:10px;
+    margin-left:10px;
+    padding: 10px;
 }
 
 /* Responsive adjustments */
@@ -373,24 +376,15 @@ textarea:focus {
     box-shadow: 0 0 5px rgba(52, 152, 219, 0.5);
 }
 
-/* Table Styles */
 .portfolio-table {
     width: 100%;
-    border-collapse: collapse;
-    margin-top: var(--spacing-base);
+    border-collapse: separate; /* Use separated rows */
+    border-spacing: 0;
     font-size: var(--font-size-small);
-    /* Compact size for better readability */
     background-color: #fff;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     border-radius: 8px;
     overflow: hidden;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.portfolio-table th,
-.portfolio-table td {
-    border: 1px solid var(--border-color);
-    padding: 10px;
-    text-align: left;
 }
 
 .portfolio-table th {
@@ -399,19 +393,50 @@ textarea:focus {
     font-weight: bold;
     text-transform: uppercase;
     font-family: 'Lato', 'Roboto', sans-serif;
+    padding: 10px 12px;
+}
+
+.portfolio-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 10;
 }
 
 .portfolio-table td {
+    padding: 10px;
+    text-align: right; 
     font-family: 'Courier New', Courier, monospace;
     color: var(--text-color);
+    padding: 8px 12px;
+}
+
+.portfolio-table td:first-child {
+    text-align: left; /* Left-align text in the first column */
 }
 
 .portfolio-table tbody tr:nth-child(odd) {
-    background-color: #f9f9f9;
+    background-color: #f8f9fa;
 }
 
 .portfolio-table tbody tr:nth-child(even) {
     background-color: #ffffff;
+}
+
+.portfolio-table td.win {
+    color: green;
+    font-weight: bold;
+}
+
+.portfolio-table td.loss {
+    color: red;
+    font-weight: bold;
+}
+
+/* Hover effect for rows */
+.portfolio-table tbody tr:hover {
+    background-color: lightgray;
+    color: white;
+    cursor: pointer;
 }
 
 /* Win/Loss */
@@ -425,6 +450,17 @@ textarea:focus {
     color: red !important;
     /* Ensure losses are red */
     font-weight: bold;
+}
+
+@media (max-width: 768px) {
+    .portfolio-table-container {
+        overflow-x: auto; /* Enable horizontal scrolling */
+    }
+
+    .portfolio-table th,
+    .portfolio-table td {
+        font-size: var(--font-size-small); /* Reduce font size for smaller screens */
+    }
 }
 
 .container {
@@ -1447,6 +1483,7 @@ button-container {
     display: flex;
     gap: 15px;
     font-size: 20px;
+    padding: 10px;
 }
 
 .win {

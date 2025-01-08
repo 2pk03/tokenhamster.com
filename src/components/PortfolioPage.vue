@@ -45,32 +45,25 @@
         <thead>
           <tr>
             <th>Symbol</th>
-            <th>Date</th>
-            <th>Cost</th>
-            <th>Amount</th>
-            <th>Total</th>
-            <th>Current</th>
-            <th>Sum</th>
+            <th>Invest</th>
+            <th>W/L</th>
             <th>Perf</th>
             <th>Actions</th>
           </tr>
         </thead>
         <tbody>
           <tr v-for="token in portfolio" :key="token.symbol">
-            <td>{{ token.symbol }}</td>
-            <td>{{ formatDateEU(token.purchaseDate) }}</td>
-            <td>{{ (token.purchasePrice) }} ({{ token.purchaseCurrency }})</td>
-            <td>{{ formatCompactAmount(token.amountBought) }}</td>
-            <td>{{ formatNumber(token.amountBought * token.purchasePrice) }}</td>
-            <td>{{ formatFullPrice(token.currentPriceConverted || token.currentPrice) }}</td>
-            <td
-              :class="(token.amountBought * (token.currentPriceConverted || token.currentPrice)) >= (token.amountBought * token.purchasePrice) ? 'win' : 'loss'">
-              {{ formatNumber(token.amountBought * (token.currentPriceConverted || token.currentPrice)) }}
-            </td>
-            <td :class="token.winLoss >= 0 ? 'win' : 'loss'">
+            <td>{{ token.symbol }}<br>
+             [{{ formatDateEU(token.purchaseDate) }}]</td>
+            <td>{{ formatCompactAmount(token.amountBought) }}<br>
+            [{{ (token.purchasePrice) }} ({{ token.purchaseCurrency }})]</td>
+            <td> <span :class="(token.amountBought * (token.currentPriceConverted || token.currentPrice)) >= (token.amountBought * token.purchasePrice) ? 'win' : 'loss'">
+              {{ formatNumber(token.amountBought * (token.currentPriceConverted || token.currentPrice)) }} </span><br>
+              [{{ formatNumber(token.amountBought * token.purchasePrice) }}] </td>
+            <td><span :class="token.winLoss >= 0 ? 'win' : 'loss'">
               {{ formatPrice(((token.amountBought * (token.currentPriceConverted || token.currentPrice)) -
-                (token.amountBought * token.purchasePrice)) / (token.amountBought * token.purchasePrice) * 100) }}%
-            </td>
+                (token.amountBought * token.purchasePrice)) / (token.amountBought * token.purchasePrice) * 100) }}%</span><br>
+                [{{ formatFullPrice(token.currentPriceConverted || token.currentPrice) }}]</td>
             <td>
               <button class="button-small-imp" @click="confirmRemove(token)">Delete</button>
             </td>
