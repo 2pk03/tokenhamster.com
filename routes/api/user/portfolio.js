@@ -1,8 +1,7 @@
 // routes/api/user/portfolio.js
 
 const express = require('express');
-const { db, savePortfolio, logAuditAction } = require('../../../database');
-const { addTokenToPolling } = require('../../../services/pollingService');
+const { db, logAuditAction } = require('../../../database');
 const router = express.Router();
 const multer = require("multer");
 
@@ -511,6 +510,123 @@ router.get('/export', (req, res) => {
         });
     });
 });
+
+// Fetch chart data for portfolio
+router.get('/perf/data', async (req, res) => {
+    const userId = req.user.id;
+    const { startDate, endDate, latest, currency } = req.query;
+
+    // Fetch the user's preferred currency
+    const currencyQuery = `
+        SELECT preferred_currency 
+        FROM users 
+        WHERE id = ?
+    `;
+
+    db.get(currencyQuery, [userId], (err, row) => {
+        if (err) {
+            console.error('Error fetching preferred currency:', err.message);
+            return res.status(500).json({ error: 'Failed to fetch preferred currency.' });
+        }
+
+        const preferredCurrency = row?.preferred_currency || 'EUR';
+        const effectiveCurrency = currency || preferredCurrency;
+
+        // Retrieve the portfolio ID dynamically
+        getDefaultPortfolioId(userId, (err, portfolioId) => {
+            if (err || !portfolioId) {
+                console.error('Error retrieving portfolio ID:', err ? err.message : 'Not found');
+                return res.status(500).json({ error: 'Portfolio not found.' });
+            }
+
+            // Fetch chart data or the latest entry
+            try {
+                if (latest === 'true') {
+                    const latestQuery = `
+                        SELECT value, currency, last_updated
+                        FROM portfolio_values
+                        WHERE user_id = ? AND portfolio_id = ? AND currency = ?
+                        ORDER BY last_updated DESC
+                        LIMIT 1
+                    `;
+
+                    db.get(latestQuery, [userId, portfolioId, effectiveCurrency], (err, row) => {
+                        if (err) {
+                            console.error('Error fetching latest portfolio value:', err.message);
+                            return res.status(500).json({ error: 'Failed to fetch latest portfolio value.' });
+                        }
+
+                        if (!row) {
+                            console.warn(`No portfolio data found for userId=${userId}, portfolioId=${portfolioId}, currency=${effectiveCurrency}`);
+                            return res.status(404).json({ error: 'No portfolio data found.' });
+                        }
+
+                        res.json(row); // Return the latest entry
+                    });
+                } else {
+                    let adjustedStartDate = startDate || '1970-01-01';
+                    if (!startDate) {
+                        const earliestTimestampQuery = `
+                            SELECT MIN(last_updated) AS earliestTimestamp
+                            FROM portfolio_values
+                            WHERE user_id = ? AND portfolio_id = ?
+                        `;
+                        db.get(
+                            earliestTimestampQuery,
+                            [userId, portfolioId],
+                            (err, row) => {
+                                if (err) {
+                                    console.error('Error fetching earliest timestamp:', err.message);
+                                    return res.status(500).json({ error: 'Failed to fetch chart data.' });
+                                }
+                                adjustedStartDate = row?.earliestTimestamp || '1970-01-01';
+
+                                fetchChartData(userId, portfolioId, adjustedStartDate, endDate, effectiveCurrency, res);
+                            }
+                        );
+                    } else {
+                        fetchChartData(userId, portfolioId, adjustedStartDate, endDate, effectiveCurrency, res);
+                    }
+                }
+            } catch (error) {
+                console.error('Error in /perf/data:', error.message);
+                res.status(500).json({ error: 'Internal server error.' });
+            }
+        });
+    });
+});
+
+
+// Helper function to fetch chart data
+function fetchChartData(userId, portfolioId, startDate, endDate, currency, res) {
+    const query = `
+        SELECT value, currency, last_updated
+        FROM portfolio_values
+        WHERE user_id = ? AND portfolio_id = ? AND currency = ? AND last_updated BETWEEN ? AND ?
+        ORDER BY last_updated ASC
+    `;
+
+    db.all(query, [userId, portfolioId, currency, startDate, endDate], (err, rows) => {
+        if (err) {
+            console.error('Error fetching chart data:', err.message);
+            return res.status(500).json({ error: 'Failed to fetch chart data.' });
+        }
+
+        if (!rows || rows.length === 0) {
+            console.warn(`No chart data found for userId=${userId}, portfolioId=${portfolioId}, currency=${currency}`);
+            return res.status(404).json({ error: 'No chart data found.' });
+        }
+
+        // Group data by currency
+        const groupedData = rows.reduce((acc, row) => {
+            if (!acc[row.currency]) acc[row.currency] = [];
+            acc[row.currency].push({ value: row.value, timestamp: row.last_updated });
+            return acc;
+        }, {});
+
+        res.json(groupedData); // Return grouped data
+    });
+}
 
 // Helper: Fetch portfolio for export
 function fetchPortfolioForExport(userId, portfolioId, callback) {

@@ -9,6 +9,16 @@
         <p><strong>Username:</strong> {{ userDetails?.username }}</p>
         <p><strong>Email:</strong> {{ userDetails?.email }}</p>
         <p><strong>User ID:</strong> {{ userDetails?.id }}</p>
+        <div class="center-content">
+          <div class="currency-selection">
+            <label for="currency-select">Currency:</label>
+            <select id="currency-select" v-model="preferredCurrency" @change="updatePreferredCurrency">
+              <option value="USD">USD</option>
+              <option value="EUR">EUR</option>
+            </select>
+            <p v-if="currencyError" class="error-message">Error: {{ currencyError }}</p>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -87,12 +97,15 @@ export default {
       file: null,
       fileSelected: false,
       fileName: "",
+      preferredCurrency: "N/A",
+      currencyError: null,
     };
   },
   mounted() {
     this.fetchProfile();
     this.fetchAuditLogs();
     document.addEventListener('keydown', this.handleEscKey);
+    this.fetchPreferredCurrency();
   },
   computed: {
     paginatedLogs() {
@@ -110,33 +123,61 @@ export default {
 
   methods: {
     async fetchProfile() {
-    try {
-      const response = await api.get('/user/profile');
-      this.userDetails = response.data;
-      if (this.userDetails.id) {
-        this.fetchProfilePicture(this.userDetails.id);
-      } else {
-        console.warn('User ID not found in profile data.');
+      try {
+        const response = await api.get('/user/profile');
+        this.userDetails = response.data;
+        if (this.userDetails.id) {
+          this.fetchProfilePicture(this.userDetails.id);
+        } else {
+          console.warn('User ID not found in profile data.');
+        }
+      } catch (error) {
+        console.error('Error fetching profile:', error);
       }
-    } catch (error) {
-      console.error('Error fetching profile:', error);
-    }
-  },
+    },
 
-  async fetchProfilePicture(userId) {
-    try {
-      const url = getProfileImageUrl(userId);
-      const response = await api.get(url, { responseType: 'blob' });
-      this.profilePictureUrl = URL.createObjectURL(response.data);
-    } catch (error) {
-      console.error('Error fetching profile picture:', error);
-    }
-  },
+    async fetchProfilePicture(userId) {
+      try {
+        const url = getProfileImageUrl(userId);
+        const response = await api.get(url, { responseType: 'blob' });
+        this.profilePictureUrl = URL.createObjectURL(response.data);
+      } catch (error) {
+        console.error('Error fetching profile picture:', error);
+      }
+    },
     getUserId() {
       return localStorage.getItem('userId') || null;
     },
     created() {
       this.fetchProfile();
+    },
+
+    async fetchPreferredCurrency() {
+      try {
+        const response = await api.get('/user/profile/currency');
+        // Ensure we use the correct key from the API response
+        this.preferredCurrency = response.data.preferred_currency || "N/A";
+        this.currencyError = null; // Clear any previous errors
+      } catch (error) {
+        console.error("Error fetching preferred currency:", error.response?.data || error.message);
+        this.preferredCurrency = "N/A";
+        this.currencyError = error.response?.data?.error || "Unable to fetch preferred currency.";
+      }
+    },
+
+    async updatePreferredCurrency() {
+      try {
+        const response = await api.put('/user/profile/currency', {
+          preferred_currency: this.preferredCurrency, // Ensure this key matches the backend's expected key
+        });
+        if (response.status === 200) {
+          alert('Preferred currency updated successfully.');
+          this.currencyError = null; // Clear previous errors
+        }
+      } catch (error) {
+        console.error('Error updating preferred currency:', error.response?.data || error.message);
+        this.currencyError = error.response?.data?.error || 'Failed to update currency.';
+      }
     },
 
     // portfolio actions
@@ -345,3 +386,26 @@ export default {
   },
 };
 </script>
+<style scoped>
+.currency-selection {
+  margin: 20px 0;
+  max-width: 150px;
+  font-family: Arial, sans-serif;
+}
+
+.currency-selection label {
+  margin-right: 10px;
+}
+
+.currency-selection select {
+  padding: 5px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+.error-message {
+  color: red;
+  margin-top: 10px;
+  font-size: 14px;
+}
+</style>

@@ -69,6 +69,7 @@ function initializeDatabase() {
                 oauthProvider TEXT DEFAULT NULL,
                 oauthId TEXT UNIQUE DEFAULT NULL,
                 profilePicture TEXT DEFAULT NULL,
+                preferred_currency TEXT DEFAULT 'EUR',
                 deleted INTEGER DEFAULT 0
             )
         `);
@@ -103,8 +104,7 @@ function initializeDatabase() {
                 portfolio_id INTEGER NOT NULL,
                 value REAL NOT NULL,
                 currency TEXT NOT NULL,
-                last_updated DATETIME NOT NULL,
-                UNIQUE (portfolio_id, currency)
+                last_updated DATETIME NOT NULL                
             )
         `);
 
@@ -138,11 +138,16 @@ function initializeDatabase() {
             )
         `);
 
-        // Ensure index exists on portfolio_id and user_id
+        // Ensure index exists on portfolio_id, portfolio_values and user_id
         db.run(`
                 CREATE INDEX IF NOT EXISTS idx_portfolio_user 
                 ON user_cryptos (portfolio_id, user_id);
        `);
+
+       db.run(`
+                CREATE INDEX IF NOT EXISTS idx_portfolio_values_last_updated 
+                ON portfolio_values (portfolio_id, last_updated);
+        `);
 
         // Enable foreign key constraints
         db.run(`PRAGMA foreign_keys = ON;`);
@@ -792,7 +797,6 @@ async function getAllActiveUserIds() {
 }
 
 
-// portfolio stores values like value per poll
 async function calculateAndSavePortfolioValues(userId) {
     try {
         // Fetch all portfolio tokens and quantities for the user
@@ -868,9 +872,6 @@ async function calculateAndSavePortfolioValues(userId) {
         const sqlInsertValues = `
             INSERT INTO portfolio_values (user_id, portfolio_id, value, currency, last_updated)
             VALUES ${queries.map(() => '(?, ?, ?, ?, ?)').join(',')}
-            ON CONFLICT (portfolio_id, currency) DO UPDATE SET
-                value = excluded.value,
-                last_updated = excluded.last_updated;
         `;
 
         await new Promise((resolve, reject) => {

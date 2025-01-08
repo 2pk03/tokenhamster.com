@@ -48,6 +48,51 @@ router.get('/', authenticateToken, (req, res) => {
     });
 });
 
+router.put('/currency', authenticateToken, (req, res) => {
+    const userId = req.user.id;
+    const { preferred_currency } = req.body;
+
+    if (!['EUR', 'USD'].includes(preferred_currency)) {
+        return res.status(400).json({ error: 'Invalid currency. Only EUR and USD are supported.' });
+    }
+
+    const query = `UPDATE users SET preferred_currency = ? WHERE id = ?`;
+    db.run(query, [preferred_currency, userId], (err) => {
+        if (err) {
+            console.error('Error updating preferred currency:', err.message);
+            return res.status(500).json({ error: 'Failed to update preferred currency.' });
+        }
+
+        res.json({ message: 'Preferred currency updated successfully.' });
+    });
+});
+
+// Fetch preferred currency for the user
+router.get('/currency', authenticateToken, (req, res) => {
+    const userId = req.user.id;
+
+    const query = `
+        SELECT preferred_currency 
+        FROM users 
+        WHERE id = ? AND deleted = 0
+    `;
+
+    db.get(query, [userId], (err, row) => {
+        if (err) {
+            console.error('Error fetching preferred currency:', err.message);
+            return res.status(500).json({ error: 'Failed to fetch preferred currency.' });
+        }
+
+        if (!row || !row.preferred_currency) {
+            console.warn(`No preferred currency set for user ID ${userId}`);
+            return res.status(404).json({ error: 'No preferred currency set.' });
+        }
+
+        res.json({ preferred_currency: row.preferred_currency });
+    });
+});
+
+
 router.get('/image/:id', authenticateToken, (req, res) => {
     const userId = req.params.id;
 

@@ -4,7 +4,7 @@
     <nav class="menu" v-if="$route.path !== '/login'">
       <div class="menu-stats">
         <strong>Statistics:</strong>
-        <span>Active Users: {{ activeUsers }}</span> | <span>Data Polled: {{ lastPoll }}</span>
+        <span>Data Polled: {{ lastPoll }}</span>
       </div>
       <div class="menu-overview"></div>
       <ul>
@@ -100,7 +100,7 @@ export default {
       amountBought: null,
       purchaseCurrency: "USD",
       isDropdownOpen: false,
-      profilePictureUrl: "/logo.webp",
+      profilePictureUrl: "/images/logo.png",
       activeUsers: 0,
       lastPoll: "N/A",
     };
@@ -120,14 +120,6 @@ export default {
       const profilePicture = this.$refs.profilePicture;
       if (dropdown && profilePicture && !dropdown.contains(event.target) && !profilePicture.contains(event.target)) {
         this.isDropdownOpen = false;
-      }
-    },
-    async fetchActiveUsers() {
-      try {
-        const response = await api.get("/user/auth/active-users");
-        this.activeUsers = response.data.count;
-      } catch (error) {
-        console.error("Error fetching active users:", error);
       }
     },
     async fetchLastPoll() {
@@ -248,15 +240,8 @@ export default {
   },
   mounted() {
     this.loadUserImage();
-    this.fetchActiveUsers();
     this.fetchLastPoll();
     EventBus.on("userLoggedIn", this.loadUserImage);
-
-    // Refresh active users every minute
-    setInterval(() => {
-      this.fetchActiveUsers();
-    }, 60000);
-
     document.addEventListener("click", this.closeDropdown);
   },
   beforeUnmount() {

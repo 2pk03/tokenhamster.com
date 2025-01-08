@@ -2,16 +2,20 @@
   <div class="content-container">
     <!-- Left Section: Graphs -->
     <div class="graphs-section">
-      <h2>Price Trends</h2>
-
-      <!-- Historical Graph -->
-      <div class="graph-container">
-        <apexchart type="line" :options="historicalChartOptions" :series="historicalChartSeries"></apexchart>
+      <h2>Portfolio Performance</h2>
+      <!-- Dropdown for Currency Selection -->
+      <div class="currency-selection">
+        <label for="currency">Select Currency:</label>
+        <select id="currency" v-model="selectedCurrency" @change="fetchPortfolioChartData">
+          <option v-for="currency in availableCurrencies" :key="currency" :value="currency">
+            {{ currency }}
+          </option>
+        </select>
       </div>
 
-      <!-- Daily Graph -->
-      <div class="graph-container">
-        <apexchart type="bar" :options="dailyChartOptions" :series="dailyChartSeries"></apexchart>
+      <!-- Portfolio Value Chart -->
+      <div class="chart-container">
+        <apexchart type="line" :options="updatedChartOptions" :series="portfolioChartSeries" height="300"></apexchart>
       </div>
     </div>
 
@@ -103,14 +107,19 @@ export default {
       purchasePrice: null,
       purchaseCurrency: "USD",
       pollingInterval: null,
+      availableCurrencies: ["EUR", "USD"],
+      portfolioChartData: [],
+      preferredCurrency: 'EUR',
+      selectedCurrency: 'EUR',
+      currencyError: 'N/A',
 
       // ApexChart options and series
-      historicalChartOptions: {
+      portfolioChartOptions: {
         chart: {
           type: "line",
           zoom: { enabled: true },
-          toolbar: { show: false }, // Removes unnecessary toolbar
-          offsetX: 10, // Adds padding to prevent clipping
+          toolbar: { show: false },
+          offsetX: 10,
           offsetY: 10,
         },
         xaxis: {
@@ -139,45 +148,8 @@ export default {
           y: { formatter: (value) => `$${value.toFixed(2)}` },
         },
       },
-      historicalChartSeries: [
+      PortfolioChartSeries: [
         { name: "Price", data: [] }, // Data to be populated dynamically
-      ],
-
-      dailyChartOptions: {
-        chart: {
-          type: "bar",
-          toolbar: { show: false },
-          offsetX: 10,
-          offsetY: 10,
-        },
-        xaxis: {
-          type: "datetime",
-          title: {
-            text: "Date",
-            style: { fontSize: "12px", color: "#333" },
-          },
-          labels: {
-            rotate: -45,
-            style: { fontSize: "10px", color: "#333" },
-          },
-        },
-        yaxis: {
-          title: {
-            text: "Volume (USD)",
-            style: { fontSize: "12px", color: "#333" },
-          },
-          labels: {
-            formatter: (value) => `$${value.toFixed(2)}`,
-            style: { fontSize: "10px", color: "#333" },
-          },
-        },
-        tooltip: {
-          x: { format: "dd MMM yyyy" },
-          y: { formatter: (value) => `$${value.toFixed(2)}` },
-        },
-      },
-      dailyChartSeries: [
-        { name: "Daily Volume", data: [] }, // Data to be populated dynamically
       ],
     };
   },
@@ -188,16 +160,45 @@ export default {
     formattedTotalValue() {
       return this.totalValue.toLocaleString(undefined, {
         style: "currency",
-        currency: "EUR",
+        currency: this.selectedCurrency || "EUR",
       });
     },
     totalInvest() {
-      return this.portfolio.reduce((sum, token) => sum + (token.amountBought * token.purchasePrice), 0);
+      if (!Array.isArray(this.portfolio) || this.portfolio.length === 0) {
+        return 0;
+      }
+      return this.portfolio.reduce((sum, token) =>
+        sum + (token.amountBought * token.purchasePrice), 0
+      );
     },
-    totalSum() {
-      return this.portfolio.reduce((sum, token) => sum + (token.amountBought * (token.currentPriceConverted || token.currentPrice)), 0);
+    portfolioChartSeries() {
+      return [
+        {
+          name: `Portfolio Value (${this.selectedCurrency || "N/A"})`,
+          data: this.portfolioChartData.map((point) => [
+            new Date(point.timestamp).getTime(),
+            point.value,
+          ]),
+        },
+      ];
+    },
+    updatedChartOptions() {
+      return {
+        ...this.portfolioChartOptions,
+        yaxis: {
+          ...this.portfolioChartOptions.yaxis,
+          title: { text: `Price (${this.selectedCurrency})` },
+        },
+      };
     },
   },
+  watch: {
+    selectedCurrency(newCurrency) {
+      console.log(`Currency changed to: ${newCurrency}`); // DEBUG
+      this.fetchCurrencyValue(newCurrency);
+    },
+  },
+
   methods: {
     // polling
     startPolling() {
@@ -215,6 +216,35 @@ export default {
       }
     },
 
+    async fetchPreferredCurrency() {
+      try {
+        const response = await api.get('/user/profile/currency');
+        this.preferredCurrency = response.data.preferred_currency || "EUR";
+        console.log(`Preferred currency set to: ${this.preferredCurrency}`); // DEBUG
+      } catch (error) {
+        console.error("Error fetching preferred currency:", error.message);
+        this.preferredCurrency = "EUR";
+      }
+    },
+
+    async fetchCurrencyValue(currency) {
+      try {
+        console.log(`Fetching total value for currency: ${currency}`); // DEBUG
+
+        const response = await api.get(`/user/portfolio/perf/data`, {
+          params: {
+            latest: true,
+            currency,
+          },
+        });
+
+        this.totalValue = response.data?.value || 0;
+        console.log(`Total value updated to: ${this.totalValue}`); // DEBUG
+      } catch (error) {
+        console.error("Error fetching total value:", error.response?.data || error.message);
+      }
+    },
+
     async fetchPortfolioData() {
       try {
         const response = await api.get("/user/portfolio/fetch");
@@ -223,7 +253,7 @@ export default {
           currentPrice: null,
           winLoss: null,
         }));
-        // console.log("Portfolio fetched:", this.portfolio); // DEBUG
+        console.log("Portfolio fetched:", this.portfolio); // DEBUG
 
         // Fetch current prices
         await this.updateCurrentPrices();
@@ -234,38 +264,24 @@ export default {
         console.error("Failed to fetch portfolio data:", err.message);
       }
     },
-    calculateTotalValue() {
-      let totalPurchaseValue = 0;
-      let totalCurrentValue = 0;
 
-      // Calculate purchase value and current value for each token
-      this.portfolio.forEach((token) => {
-        const purchaseValue = (token.amountBought || 0) * (token.purchasePrice || 0);
-        const currentValue = (token.amountBought || 0) * (token.currentPrice || 0);
-
-        totalPurchaseValue += purchaseValue;
-        totalCurrentValue += currentValue;
-      });
-
-      this.totalValue = totalCurrentValue;
-
-      // Calculate percentage change
-      this.percentageChange = totalPurchaseValue
-        ? ((totalCurrentValue - totalPurchaseValue) / totalPurchaseValue) * 100
-        : 0;
-    },
-    // Fetch historical data
-    async fetchHistoricalData(symbol) {
+    async calculateTotalValue() {
       try {
-        const response = await api.get(`/functional/historical/fetch`, {
-          params: { symbol },
+        const response = await api.get('/user/portfolio/perf/data', {
+          params: { currency: 'EUR', latest: true },
         });
-        this.historicalChartSeries[0].data = response.data.map((d) => [
-          new Date(d.date_time).getTime(),
-          d.price_usd,
-        ]);
-      } catch (err) {
-        console.error("Failed to fetch historical data:", err.message);
+
+        // Set totalValue from the latest API response
+        this.totalValue = response.data?.value || 0;
+
+        // Calculate percentageChange dynamically
+        this.percentageChange = this.totalInvest > 0
+          ? ((this.totalValue - this.totalInvest) / this.totalInvest) * 100
+          : 0;
+      } catch (error) {
+        console.error('Failed to fetch total portfolio value:', error.message);
+        this.totalValue = 0;
+        this.percentageChange = 0;
       }
     },
 
@@ -308,11 +324,11 @@ export default {
           // Calculate win/loss
           token.winLoss = currentTotalValue - totalPurchaseValue;
 
-           /* console.log(`Updated data for ${token.symbol}:`, {
-            totalPurchaseValue,
-            currentTotalValue,
-            winLoss: token.winLoss,
-          }); */
+          /* console.log(`Updated data for ${token.symbol}:`, {
+           totalPurchaseValue,
+           currentTotalValue,
+           winLoss: token.winLoss,
+         }); */
         } catch (err) {
           console.error(`Failed to fetch current price for ${token.symbol}:`, err);
         }
@@ -455,7 +471,86 @@ export default {
     formatNumber(value) {
       return value.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     },
+
+    /* Chart logic */
+
+    // 1. Initialize portfolio and fetch chart data
+    async initPortfolioData() {
+      try {
+        await this.fetchPreferredCurrency();
+        this.selectedCurrency = this.preferredCurrency;
+        const response = await api.get("/user/portfolio/fetch");
+        if (response.data.length > 0) {
+          // console.log("Portfolio fetched:", response.data); // DEBUG
+
+          // Set portfolio data for table
+          this.portfolio = response.data.map((token) => ({
+            ...token,
+            currentPrice: null,
+            winLoss: null,
+          }));
+
+          // Fetch chart data
+          await this.fetchPortfolioChartData();
+        } else {
+          console.warn("No portfolios available for the user.");
+          this.portfolio = [];
+        }
+      } catch (error) {
+        console.error("Error initializing portfolio:", error.message);
+        this.portfolio = [];
+      }
+    },
+
+    // 2. Fetch chart data for the active portfolio
+    async fetchPortfolioChartData() {
+      try {
+        console.log(`Fetching chart data for currency: ${this.selectedCurrency}`); // DEBUG
+
+        const response = await api.get(`/user/portfolio/perf/data`, {
+          params: {
+            startDate: '1970-01-01', // Default start date
+            endDate: new Date().toISOString(), // Current date
+            currency: this.selectedCurrency, // Fetch data for selected currency
+          },
+        });
+
+        if (!response.data || Object.keys(response.data).length === 0) {
+          console.warn(`No chart data found for currency: ${this.selectedCurrency}`);
+          this.portfolioChartData = [];
+          return;
+        }
+
+        console.log(`Chart data fetched for ${this.selectedCurrency}:`, response.data); // DEBUG
+        this.updateChart(response.data); // Update the chart with the fetched data
+      } catch (error) {
+        console.error(
+          "Error fetching portfolio chart data:",
+          error.response?.data || error.message
+        );
+      }
+    },
+
+    // 3. Update chart data for the selected currency
+    updateChart(data) {
+      if (!data || !this.selectedCurrency) {
+        console.warn("No chart data or currency selected.");
+        this.portfolioChartData = [];
+        return;
+      }
+
+      const currencyData = data[this.selectedCurrency];
+      if (currencyData?.length > 0) {
+        this.portfolioChartData = currencyData;
+        console.log(`Chart updated for ${this.selectedCurrency}:`, this.portfolioChartData); // DEBUG
+      } else {
+        console.warn(`No data available for currency: ${this.selectedCurrency}`);
+        this.portfolioChartData = [];
+      }
+    },
   },
+  /* method block end */
+
   created() {
     const token = localStorage.getItem("token");
     if (!token) {
@@ -467,18 +562,53 @@ export default {
       });
     }
   },
+
   mounted() {
-    // Register EventBus listener
+    // Register EventBus listeners
     EventBus.on("updateCurrentPrices", this.updateCurrentPrices);
     EventBus.on("refreshPortfolio", this.fetchPortfolioData);
-    const defaultToken = "XRP";
-    this.fetchHistoricalData(defaultToken);
-    this.fetchDailyData(defaultToken);
+
+    // Fetch portfolio data and initialize chart
+    this.initPortfolioData();
+
+    // Set up the selected currency and fetch the initial total value
+    this.fetchPreferredCurrency()
+      .then(() => {
+        this.selectedCurrency = this.preferredCurrency; 
+        return this.fetchCurrencyValue(this.selectedCurrency); 
+      })
+      .catch((error) => {
+        console.error("Error during currency initialization:", error.message);
+      });
   },
-  bbeforeUnmount() {
+
+  beforeUnmount() {
     // Unregister EventBus listeners
     EventBus.off("updateCurrentPrices", this.updateCurrentPrices);
     EventBus.off("refreshPortfolio", this.fetchPortfolioData);
   },
+
 };
 </script>
+<style scoped>
+.currency-selection {
+  max-width: 150px;
+  font-family: Arial, sans-serif;
+}
+
+.currency-selection label {
+  margin-right: 10px;
+}
+
+.currency-selection select {
+  padding: 5px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+.error-message {
+  color: red;
+  margin-top: 10px;
+  font-size: 14px;
+}
+</style>
