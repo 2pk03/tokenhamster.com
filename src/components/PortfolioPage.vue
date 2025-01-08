@@ -2,16 +2,17 @@
   <div class="content-container">
     <!-- Left Section: Graphs -->
     <div class="graphs-section">
-      <h2>Portfolio Performance</h2>
-      <!-- Dropdown for Currency Selection -->
-      <div class="currency-selection">
-        <label for="currency">Select Currency:</label>
-        <select id="currency" v-model="selectedCurrency" @change="fetchPortfolioChartData">
-          <option v-for="currency in availableCurrencies" :key="currency" :value="currency">
-            {{ currency }}
-          </option>
+      <div class="performance-header">
+        <h2>Portfolio Performance
+          <label for="currency-select" class="currency-label">in:</label>
+        </h2>
+        <select id="currency-select" v-model="selectedCurrency" @change="fetchPortfolioChartData">
+          <option value="USD">USD</option>
+          <option value="EUR">EUR</option>
         </select>
       </div>
+
+
 
       <!-- Portfolio Value Chart -->
       <div class="chart-container">
@@ -183,6 +184,7 @@ export default {
       ];
     },
     updatedChartOptions() {
+      const currencySymbol = this.selectedCurrency === "USD" ? "$" : "€";
       return {
         ...this.portfolioChartOptions,
         tooltip: {
@@ -190,13 +192,17 @@ export default {
             formatter: (value) => this.formatDateTime(value),
           },
           y: {
-            formatter: (value) =>
-              `${this.selectedCurrency === "USD" ? "$" : "€"}${value.toFixed(2)}`,
+            formatter: (value) => `${currencySymbol}${value.toFixed(2)}`,
           },
         },
         yaxis: {
           ...this.portfolioChartOptions.yaxis,
-          title: { text: `Price (${this.selectedCurrency})` },
+          title: {
+            text: `Price (${this.selectedCurrency})`, // Update the y-axis title dynamically
+          },
+          labels: {
+            formatter: (value) => `${currencySymbol}${value.toFixed(2)}`, // Dynamic label formatter
+          },
         },
       };
     },
@@ -611,35 +617,39 @@ export default {
       .catch((error) => {
         console.error("Error during currency initialization:", error.message);
       });
-  },
 
-  beforeUnmount() {
-    // Unregister EventBus listeners
-    EventBus.off("updateCurrentPrices", this.updateCurrentPrices);
-    EventBus.off("refreshPortfolio", this.fetchPortfolioData);
-  },
+    // check for token and push => /
+    this.refreshInterval = setInterval(() => {
+      this.fetchPortfolioData();
+    }, 60000); // Refresh every 60 seconds
+},
+
+beforeUnmount() {
+  // Unregister EventBus listeners
+  EventBus.off("updateCurrentPrices", this.updateCurrentPrices);
+  EventBus.off("refreshPortfolio", this.fetchPortfolioData);
+  if (this.refreshInterval) {
+        clearInterval(this.refreshInterval); // Clear the interval on component unmount
+    }
+},
 
 };
+
 </script>
 <style scoped>
-.currency-selection {
-  max-width: 150px;
-  font-family: Arial, sans-serif;
+.performance-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
-.currency-selection label {
-  margin-right: 10px;
+.currency-label {
+  margin: 0;
 }
 
-.currency-selection select {
-  padding: 5px;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-}
-
-.error-message {
-  color: red;
-  margin-top: 10px;
-  font-size: 14px;
+select {
+  font-size: 1rem;
+  max-width: 75px;
+  margin-top: -5px;
 }
 </style>

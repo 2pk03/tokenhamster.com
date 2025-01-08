@@ -15,29 +15,20 @@ let refreshInterval = null;
 const startRefreshInterval = () => {
     if (refreshInterval) return; // Prevent multiple intervals
 
-    refreshInterval = setInterval(async () => {
+    refreshInterval = setInterval(() => {
         const token = store.state.auth.token;
         if (token) {
-            try {
-                const decoded = jwtDecode(token);
-                const now = Math.floor(Date.now() / 1000);
+            const now = Math.floor(Date.now() / 1000);
+            const decoded = jwtDecode(token);
 
-                if (decoded.exp > now) {
-                    store.commit('auth/setUser', decoded); // Set the user data from the token
-                    store.commit('auth/setAuthenticated', true); // Set isAuthenticated to true
-                    // ('Token valid. Initializing refresh interval.'); // DEBUG
-                    startRefreshInterval();
-                } else {
-                    console.warn('Token expired. Logging out.');
-                    store.dispatch('auth/logout');
-                }
-            } catch (error) {
-                console.error('Error decoding token:', error);
+            if (decoded.exp <= now) {
+                console.warn('Token expired during refresh interval. Logging out.');
                 store.dispatch('auth/logout');
+            } else {
+                console.log('Token still valid during refresh interval.');
             }
         }
-
-    }, 5 * 60 * 1000); // Check every 5 minutes
+    }, 5 * 60 * 1000); // Refresh every 5 minutes
 };
 
 const stopRefreshInterval = () => {
