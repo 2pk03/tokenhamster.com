@@ -185,6 +185,15 @@ export default {
     updatedChartOptions() {
       return {
         ...this.portfolioChartOptions,
+        tooltip: {
+          x: {
+            formatter: (value) => this.formatDateTime(value),
+          },
+          y: {
+            formatter: (value) =>
+              `${this.selectedCurrency === "USD" ? "$" : "€"}${value.toFixed(2)}`,
+          },
+        },
         yaxis: {
           ...this.portfolioChartOptions.yaxis,
           title: { text: `Price (${this.selectedCurrency})` },
@@ -194,7 +203,7 @@ export default {
   },
   watch: {
     selectedCurrency(newCurrency) {
-      console.log(`Currency changed to: ${newCurrency}`); // DEBUG
+      // console.log(`Currency changed to: ${newCurrency}`); // DEBUG
       this.fetchCurrencyValue(newCurrency);
     },
   },
@@ -220,7 +229,7 @@ export default {
       try {
         const response = await api.get('/user/profile/currency');
         this.preferredCurrency = response.data.preferred_currency || "EUR";
-        console.log(`Preferred currency set to: ${this.preferredCurrency}`); // DEBUG
+        // console.log(`Preferred currency set to: ${this.preferredCurrency}`); // DEBUG
       } catch (error) {
         console.error("Error fetching preferred currency:", error.message);
         this.preferredCurrency = "EUR";
@@ -229,7 +238,7 @@ export default {
 
     async fetchCurrencyValue(currency) {
       try {
-        console.log(`Fetching total value for currency: ${currency}`); // DEBUG
+        // console.log(`Fetching total value for currency: ${currency}`); // DEBUG
 
         const response = await api.get(`/user/portfolio/perf/data`, {
           params: {
@@ -239,7 +248,7 @@ export default {
         });
 
         this.totalValue = response.data?.value || 0;
-        console.log(`Total value updated to: ${this.totalValue}`); // DEBUG
+        // console.log(`Total value updated to: ${this.totalValue}`); // DEBUG
       } catch (error) {
         console.error("Error fetching total value:", error.response?.data || error.message);
       }
@@ -253,7 +262,7 @@ export default {
           currentPrice: null,
           winLoss: null,
         }));
-        console.log("Portfolio fetched:", this.portfolio); // DEBUG
+        // console.log("Portfolio fetched:", this.portfolio); // DEBUG
 
         // Fetch current prices
         await this.updateCurrentPrices();
@@ -301,7 +310,7 @@ export default {
           new Date(d.date_time).getTime(),
           d.volume,
         ]);
-        console.log("Daily data successfully mapped:", this.dailyChartSeries[0].data);
+        // console.log("Daily data successfully mapped:", this.dailyChartSeries[0].data);
       } catch (err) {
         console.error("Failed to fetch daily data:", err.message);
       }
@@ -393,11 +402,11 @@ export default {
             token.currentPrice * token.amount -
             token.purchasePrice * token.amount;
 
-          console.log(`Updated prices for ${token.symbol}:`, {
+          /* console.log(`Updated prices for ${token.symbol}:`, {
             purchasePriceConverted: token.purchasePriceConverted,
             currentPriceConverted: token.currentPriceConverted,
             winLoss: token.winLoss,
-          });
+          }); */ // DEBUG
         } catch (err) {
           console.error(`Failed to update currency for ${token.symbol}:`, err);
         }
@@ -505,13 +514,13 @@ export default {
     // 2. Fetch chart data for the active portfolio
     async fetchPortfolioChartData() {
       try {
-        console.log(`Fetching chart data for currency: ${this.selectedCurrency}`); // DEBUG
+        // console.log(`Fetching chart data for currency: ${this.selectedCurrency}`); // DEBUG
 
         const response = await api.get(`/user/portfolio/perf/data`, {
           params: {
-            startDate: '1970-01-01', // Default start date
-            endDate: new Date().toISOString(), // Current date
-            currency: this.selectedCurrency, // Fetch data for selected currency
+            startDate: '1970-01-01',
+            endDate: new Date().toISOString(),
+            currency: this.selectedCurrency,
           },
         });
 
@@ -542,10 +551,32 @@ export default {
       const currencyData = data[this.selectedCurrency];
       if (currencyData?.length > 0) {
         this.portfolioChartData = currencyData;
-        console.log(`Chart updated for ${this.selectedCurrency}:`, this.portfolioChartData); // DEBUG
+        // console.log(`Chart updated for ${this.selectedCurrency}:`, this.portfolioChartData); // DEBUG
       } else {
         console.warn(`No data available for currency: ${this.selectedCurrency}`);
         this.portfolioChartData = [];
+      }
+    },
+    /* timezone stuff */
+    formatDateTime(timestamp) {
+      const date = new Date(timestamp);
+
+      // Check if the selected currency is USD or EUR
+      if (this.selectedCurrency === "USD") {
+        // 12-hour format with timezone
+        return date.toLocaleString("en-US", {
+          dateStyle: "medium",
+          timeStyle: "short",
+          timeZone: "America/New_York", // Adjust to US timezone
+        });
+      } else {
+        // 24-hour format with timezone
+        return date.toLocaleString("de-DE", {
+          dateStyle: "medium",
+          timeStyle: "short",
+          hour12: false, // 24-hour format
+          timeZone: "Europe/Berlin", // Adjust to EU timezone
+        });
       }
     },
   },
@@ -574,8 +605,8 @@ export default {
     // Set up the selected currency and fetch the initial total value
     this.fetchPreferredCurrency()
       .then(() => {
-        this.selectedCurrency = this.preferredCurrency; 
-        return this.fetchCurrencyValue(this.selectedCurrency); 
+        this.selectedCurrency = this.preferredCurrency;
+        return this.fetchCurrencyValue(this.selectedCurrency);
       })
       .catch((error) => {
         console.error("Error during currency initialization:", error.message);
