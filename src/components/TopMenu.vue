@@ -56,7 +56,7 @@
           <h4>Selected Token: {{ selectedToken.full_name }}</h4>
           <label>
             Purchase Date:
-            <input type="date" v-model="purchaseDate" />
+            <input type="date" id="purchase-date" v-model="purchaseDate" :max="maxDate" required />
           </label>
           <label>
             Purchase Price:
@@ -103,6 +103,7 @@ export default {
       profilePictureUrl: "/images/logo.png",
       activeUsers: 0,
       lastPoll: "N/A",
+      maxDate: new Date().toISOString().split("T")[0],
     };
   },
   methods: {
@@ -144,6 +145,8 @@ export default {
         this.lastPoll = "N/A";
       }
     },
+
+    /* add a token */
     openAddTokenModal() {
       this.showAddTokenModal = true;
     },
@@ -160,6 +163,7 @@ export default {
       this.purchasePrice = null;
       this.amountBought = null;
       this.purchaseCurrency = "USD";
+      this.dateError = null; // Reset date error
     },
     async searchTokens() {
       if (!this.searchQuery) {
@@ -185,8 +189,18 @@ export default {
         alert("Please fill in all fields.");
         return;
       }
+
+      // Validate the purchase date
+      const selectedDate = new Date(this.purchaseDate);
+      const today = new Date();
+      if (selectedDate > today) {
+        this.dateError = "The purchase date cannot be in the future.";
+        alert(this.dateError);
+        return;
+      }
+
       try {
-        const response = await api.post("/user/portfolio/add", {
+        const response = await api.post("/user/portfolio/token/add", {
           symbol: this.selectedToken.symbol,
           purchasePrice: parseFloat(this.purchasePrice),
           amount: parseFloat(this.amountBought),
@@ -210,6 +224,8 @@ export default {
         alert("Failed to add token. Please try again.");
       }
     },
+/* end token add */
+
     async fetchProfilePicture(userId) {
       try {
         const url = getProfileImageUrl(userId); // Construct URL

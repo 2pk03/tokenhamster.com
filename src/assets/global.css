@@ -61,6 +61,11 @@ main {
     margin-bottom: 20px;
 }
 
+.center-text {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
 /* Container Styles */
 .container {
     width: 100%;

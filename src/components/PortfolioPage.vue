@@ -530,7 +530,7 @@ export default {
           return;
         }
 
-        console.log(`Chart data fetched for ${this.selectedCurrency}:`, response.data); // DEBUG
+        // console.log(`Chart data fetched for ${this.selectedCurrency}:`, response.data); // DEBUG
         this.updateChart(response.data); // Update the chart with the fetched data
       } catch (error) {
         console.error(

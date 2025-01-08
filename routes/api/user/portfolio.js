@@ -61,6 +61,8 @@ router.post('/token/add', (req, res) => {
     const userId = req.user.id;
     const { symbol, purchasePrice, purchaseCurrency, purchaseDate, amount } = req.body;
 
+    console.log("Request body for adding token:", req.body); // DEBUG
+
     if (!symbol || !purchasePrice || !purchaseCurrency || !purchaseDate || !amount) {
         console.error('Missing required fields:', { symbol, purchasePrice, purchaseCurrency, purchaseDate, amount });
         return res.status(400).json({ error: 'All fields are required.' });

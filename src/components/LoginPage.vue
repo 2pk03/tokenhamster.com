@@ -2,7 +2,7 @@
   <div class="login-container">
     <img src="/images/tokenhamster.webp" alt="TokenHamster" class="background-image" />    
     <div class="login-page">
-      <div class="center-content">
+      <div class="center-text">
         <h1 class="main-title">The TokenHamster</h1>
         <p class="subtitle">Track your crypto offline securely and easily</p>
         <strong>beta v. 0.72</strong>
