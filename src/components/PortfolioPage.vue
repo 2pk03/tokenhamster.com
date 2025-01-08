@@ -12,8 +12,6 @@
         </select>
       </div>
 
-
-
       <!-- Portfolio Value Chart -->
       <div class="chart-container">
         <apexchart type="line" :options="updatedChartOptions" :series="portfolioChartSeries" height="300"></apexchart>
@@ -30,10 +28,17 @@
       </h2>
       <div class="overview-section">
         <div class="overview-metrics">
-          <span class="overview-invest">Total Invest:</span>{{ formatNumber(totalInvest) }}
-          <span class="overview-invest">Performance:</span><span class="overview-performance"
+          <span class="overview-invest">Invest:</span><b>{{ formatNumber(totalInvest) }}</b>
+          <span class="overview-invest">Perf:</span><span class="overview-performance"
             :class="percentageChange >= 0 ? 'win' : 'loss'"> {{
               percentageChange.toFixed(2) }}%</span>
+          <span class="overview-invest">W/L:</span><span class="overview-performance" :class="totalWinLoss >= 0 ? 'win' : 'loss'">
+            {{ totalWinLoss >= 0 ? '+' : '' }}{{ formattedTotalWinLoss }}
+        </span>
+          <span class="overview-invest">Daily W/L:</span><span class="overview-performance"
+            :class="dailyDifference >= 0 ? 'win' : 'loss'">
+            {{ dailyDifference >= 0 ? '+' : '' }}{{ formatNumber(dailyDifference) }}
+          </span>
         </div>
       </div>
       <table class="portfolio-table">
@@ -113,6 +118,8 @@ export default {
       preferredCurrency: 'EUR',
       selectedCurrency: 'EUR',
       currencyError: 'N/A',
+      dailyDifference: 0,
+      totalSum: 0,
 
       // ApexChart options and series
       portfolioChartOptions: {
@@ -122,6 +129,10 @@ export default {
           toolbar: { show: false },
           offsetX: 10,
           offsetY: 10,
+        },
+        stroke: {
+          curve: "smooth",
+          width: 3,
         },
         xaxis: {
           type: "datetime",
@@ -136,7 +147,7 @@ export default {
         },
         yaxis: {
           title: {
-            text: "Price (USD)",
+            text: "Value (USD)",
             style: { fontSize: "12px", color: "#333" },
           },
           labels: {
@@ -150,7 +161,7 @@ export default {
         },
       },
       PortfolioChartSeries: [
-        { name: "Price", data: [] }, // Data to be populated dynamically
+        { name: "Value", data: [] }, // Data to be populated dynamically
       ],
     };
   },
@@ -171,6 +182,14 @@ export default {
       return this.portfolio.reduce((sum, token) =>
         sum + (token.amountBought * token.purchasePrice), 0
       );
+    },
+    totalWinLoss() {
+        const totalSum = this.totalValue || 0;
+        const totalInvest = this.totalInvest || 0;
+        return totalSum - totalInvest;
+    },
+    formattedTotalWinLoss() {
+        return this.formatNumber(this.totalWinLoss);
     },
     portfolioChartSeries() {
       return [
@@ -198,7 +217,7 @@ export default {
         yaxis: {
           ...this.portfolioChartOptions.yaxis,
           title: {
-            text: `Price (${this.selectedCurrency})`, // Update the y-axis title dynamically
+            text: `Value (${this.selectedCurrency})`, // Update the y-axis title dynamically
           },
           labels: {
             formatter: (value) => `${currencySymbol}${value.toFixed(2)}`, // Dynamic label formatter
@@ -297,6 +316,26 @@ export default {
         console.error('Failed to fetch total portfolio value:', error.message);
         this.totalValue = 0;
         this.percentageChange = 0;
+      }
+    },
+
+    // daily perf
+    async fetchDailyWinLoss() {
+      try {
+        const response = await api.get('/user/portfolio/perf/daily', {
+          params: { currency: this.selectedCurrency },
+        });
+
+        this.dailyDifference = response.data.dailyDifference || 0;
+
+        console.log('Daily W/L fetched:', {
+          dailyDifference: this.dailyDifference,
+          lastYesterdayValue: response.data.lastYesterdayValue,
+          latestTodayValue: response.data.latestTodayValue,
+        });
+      } catch (err) {
+        console.error('Failed to fetch daily W/L:', err.response?.data || err.message);
+        this.dailyDifference = 0;
       }
     },
 
@@ -604,6 +643,7 @@ export default {
     // Register EventBus listeners
     EventBus.on("updateCurrentPrices", this.updateCurrentPrices);
     EventBus.on("refreshPortfolio", this.fetchPortfolioData);
+    this.fetchDailyWinLoss();
 
     // Fetch portfolio data and initialize chart
     this.initPortfolioData();
@@ -622,16 +662,16 @@ export default {
     this.refreshInterval = setInterval(() => {
       this.fetchPortfolioData();
     }, 60000); // Refresh every 60 seconds
-},
+  },
 
-beforeUnmount() {
-  // Unregister EventBus listeners
-  EventBus.off("updateCurrentPrices", this.updateCurrentPrices);
-  EventBus.off("refreshPortfolio", this.fetchPortfolioData);
-  if (this.refreshInterval) {
-        clearInterval(this.refreshInterval); // Clear the interval on component unmount
+  beforeUnmount() {
+    // Unregister EventBus listeners
+    EventBus.off("updateCurrentPrices", this.updateCurrentPrices);
+    EventBus.off("refreshPortfolio", this.fetchPortfolioData);
+    if (this.refreshInterval) {
+      clearInterval(this.refreshInterval); // Clear the interval on component unmount
     }
-},
+  },
 
 };
 

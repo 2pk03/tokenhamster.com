@@ -598,6 +598,57 @@ router.get('/perf/data', async (req, res) => {
     });
 });
 
+// daily performance
+router.get('/perf/daily', async (req, res) => {
+    const userId = req.user.id;
+    const { currency } = req.query;
+
+    const portfolioIdQuery = `SELECT id FROM portfolios WHERE user_id = ? LIMIT 1`;
+    const getPortfolioId = await new Promise((resolve, reject) => {
+        db.get(portfolioIdQuery, [userId], (err, row) => {
+            if (err) reject(err);
+            else resolve(row?.id);
+        });
+    });
+
+    if (!getPortfolioId) {
+        return res.status(404).json({ error: 'Portfolio not found.' });
+    }
+
+    const portfolioId = getPortfolioId;
+    const today = new Date().toISOString().split('T')[0];
+    const yesterday = new Date(Date.now() - 864e5).toISOString().split('T')[0];
+
+    const query = `
+        SELECT value, last_updated
+        FROM portfolio_values
+        WHERE user_id = ? AND portfolio_id = ? AND currency = ?
+        AND (DATE(last_updated) = ? OR DATE(last_updated) = ?)
+        ORDER BY last_updated ASC
+    `;
+
+    db.all(query, [userId, portfolioId, currency || 'USD', yesterday, today], (err, rows) => {
+        if (err) {
+            console.error('Error fetching daily portfolio values:', err.message);
+            return res.status(500).json({ error: 'Failed to fetch daily portfolio values.' });
+        }
+
+        const lastYesterday = rows.find(row => new Date(row.last_updated).toISOString().startsWith(yesterday));
+        const latestToday = rows[rows.length - 1];
+
+        if (!lastYesterday || !latestToday) {
+            return res.status(404).json({ error: 'Not enough data for daily W/L.' });
+        }
+
+        const dailyDifference = latestToday.value - lastYesterday.value;
+
+        res.json({
+            dailyDifference,
+            lastYesterdayValue: lastYesterday.value,
+            latestTodayValue: latestToday.value,
+        });
+    });
+});
 
 // Helper function to fetch chart data
 function fetchChartData(userId, portfolioId, startDate, endDate, currency, res) {
