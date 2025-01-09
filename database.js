@@ -172,6 +172,11 @@ function initializeDatabase() {
                 price_eur REAL,
                 volume REAL,
                 market_cap REAL,
+                open REAL,
+                high REAL,
+                low REAL,
+                volume_from REAL,
+                volume_to REAL,
                 UNIQUE (crypto_symbol, date_time)
             )
         `);

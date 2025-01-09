@@ -6,15 +6,15 @@ let eventSource = null;
 export function initializeRelay() {
   const baseUrl = process.env.VUE_APP_EVENT_BASE_URL || "https://www.tokenhamster.com";
   const sseUrl = `${baseUrl}/events`;
-  console.log(`[Relay] Initializing EventSource with URL: ${sseUrl}`);
+  // console.log(`[Relay] Initializing EventSource with URL: ${sseUrl}`); // DEBUG
 
   function connect() {
-    console.log("[Relay] Attempting to connect to SSE...");
+    // console.log("[Relay] Attempting to connect to SSE...");
 
     eventSource = new EventSource(sseUrl);
 
     eventSource.addEventListener("dataUpdated", () => {
-      console.log("[Relay] Received dataUpdated event from backend");
+      // console.log("[Relay] Received dataUpdated event from backend");
       EventBus.emit("dataUpdated");
     });
 
@@ -31,7 +31,7 @@ export function initializeRelay() {
     };
 
     eventSource.addEventListener("open", () => {
-      console.log("[Relay] SSE connection established.");
+      // console.log("[Relay] SSE connection established.");
     });
   }
 

@@ -6,9 +6,10 @@ const { API_KEY_CRYPTOCOMPARE, CRYPTOCOMPARE_BASE_URL } = require('../config');
 const { broadcast } = require("../middleware/eventbus/express");
 
 const pollingIntervals = {};
-const DEV_POLLING_INTERVAL = 60 * 60 * 1000;
+const DEV_POLLING_INTERVAL = 1 * 60 * 1000;
 const PROD_POLLING_INTERVAL = 7.5 * 60 * 1000;
 const DEFAULT_POLLING_INTERVAL = process.env.DEV === '1' ? DEV_POLLING_INTERVAL : PROD_POLLING_INTERVAL;
+
 
 /* 
 // Add an interceptor for requests - DEBUG - NOT FOR PROD - EXPOSES KEYS
@@ -35,11 +36,11 @@ axios.interceptors.request.use(
 // Fetch crypto price data
 async function fetchCryptoPrices(fsyms, tsyms) {
     try {
-        const response = await axios.get(`${CRYPTOCOMPARE_BASE_URL}/pricemulti`, {
+        const response = await axios.get(`${CRYPTOCOMPARE_BASE_URL}/pricemultifull`, {
             params: { fsyms, tsyms, api_key: API_KEY_CRYPTOCOMPARE },
         });
         // console.log('API Response:', JSON.stringify(response.data, null, 2)); // Debug
-        return response.data;
+        return response.data.RAW;;
     } catch (err) {
         console.error(`Error fetching prices for fsyms=[${fsyms}] and tsyms=[${tsyms}]:`, err.message);
         return null;
@@ -53,8 +54,39 @@ function savePolledData({ crypto_symbol, timestamp, prices }) {
         return;
     }
 
-    const { EUR, USD, BTC } = prices;
+    // Extract raw fields from the `prices` object
+    const usdData = prices.USD || {};
+    const eurData = prices.EUR || {};
 
+    const usdPrice = usdData.PRICE || null;
+    const eurPrice = eurData.PRICE || null;
+    const btcPrice = prices.BTC?.PRICE || null;
+
+    // Format fields only for historical data
+    const open = parseFloat(usdData.OPENHOUR?.toFixed(10)) || null;
+    const high = parseFloat(usdData.HIGHHOUR?.toFixed(10)) || null;
+    const low = parseFloat(usdData.LOWHOUR?.toFixed(10)) || null;
+    const volume_from = parseFloat(usdData.VOLUMEHOUR?.toFixed(10)) || null;
+    const volume_to = parseFloat(usdData.VOLUMEHOURTO?.toFixed(10)) || null;
+    const market_cap = parseFloat(usdData.MKTCAP?.toFixed(2)) || null;
+
+    /* 
+    // Debug log for verification
+    console.log({
+        crypto_symbol,
+        timestamp,
+        price_usd: usdPrice,
+        price_eur: eurPrice,
+        price_btc: btcPrice,
+        open,
+        high,
+        low,
+        volume_from,
+        volume_to,
+        market_cap,
+    }); */
+
+    // Save raw data to current_prices
     const updateQuery = `
         INSERT INTO current_prices (crypto_symbol, currency, price, last_updated)
         VALUES (?, 'EUR', ?, ?),
@@ -67,7 +99,7 @@ function savePolledData({ crypto_symbol, timestamp, prices }) {
 
     db.run(
         updateQuery,
-        [crypto_symbol, EUR, timestamp, crypto_symbol, USD, timestamp, crypto_symbol, BTC, timestamp],
+        [crypto_symbol, eurPrice, timestamp, crypto_symbol, usdPrice, timestamp, crypto_symbol, btcPrice, timestamp],
         (err) => {
             if (err) {
                 console.error(`Error saving to current_prices for ${crypto_symbol}:`, err.message);
@@ -77,27 +109,49 @@ function savePolledData({ crypto_symbol, timestamp, prices }) {
         }
     );
 
+    // Save formatted data to historical_data
     const historicalQuery = `
-        INSERT INTO historical_data (crypto_symbol, date_time, price_usd, price_eur, price_btc)
-        VALUES (?, ?, ?, ?, ?)
+        INSERT INTO historical_data (
+            crypto_symbol, date_time, price_usd, price_eur, price_btc, open, high, low, volume_from, volume_to, market_cap
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT (crypto_symbol, date_time) DO UPDATE SET
         price_usd = excluded.price_usd,
         price_eur = excluded.price_eur,
-        price_btc = excluded.price_btc;
+        price_btc = excluded.price_btc,
+        open = excluded.open,
+        high = excluded.high,
+        low = excluded.low,
+        volume_from = excluded.volume_from,
+        volume_to = excluded.volume_to,
+        market_cap = excluded.market_cap;
     `;
 
     db.run(
         historicalQuery,
-        [crypto_symbol, timestamp, USD, EUR, BTC],
+        [
+            crypto_symbol,
+            timestamp,
+            usdPrice,
+            eurPrice,
+            btcPrice,
+            open,
+            high,
+            low,
+            volume_from,
+            volume_to,
+            market_cap,
+        ],
         (err) => {
             if (err) {
                 console.error(`Error saving to historical_data for ${crypto_symbol}:`, err.message);
             } else {
-                console.log(`Saved historical data for ${crypto_symbol}.`);
+                // console.log(`Saved historical data for ${crypto_symbol}.`);
             }
         }
     );
 }
+
 
 // Fetch symbols and currencies from the database
 const getTrackedSymbolsAndCurrencies = () => {
@@ -325,7 +379,7 @@ const refreshPolling = async () => {
                         console.warn(`Incomplete data for ${symbol}. Skipping.`);
                     }
                 });
-                    broadcast("dataUpdated"); // Push event to bus
+                broadcast("dataUpdated"); // Push event to bus
             } else {
                 console.error(`Failed to fetch prices for batch: ${fsyms}`);
             }
