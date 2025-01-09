@@ -6,18 +6,18 @@ let eventSource = null;
 export function initializeRelay() {
   const baseUrl = process.env.VUE_APP_EVENT_BASE_URL;
   console.log("Environment Variables in relayService.js:", process.env); // DEBUG
-  console.log("VUE_APP_API_BASE_URL:", process.env.VUE_APP_EVENT_BASE_URL); // DEBUG
+  console.log("VUE_APP_EVENT_BASE_URL:", process.env.VUE_APP_EVENT_BASE_URL); // DEBUG
 
 
 
   if (!eventSource) {
     const url = `${baseUrl}/events`;
-    console.log(`[Relay] Initializing EventSource with URL: ${url}`);
+    console.log(`[Relay] Initializing EventSource with URL: ${url}`); // DEBUG
 
     eventSource = new EventSource(url);
 
     eventSource.addEventListener("dataUpdated", () => {
-      console.log("[Relay] Received dataUpdated event from backend");
+      console.log("[Relay] Received dataUpdated event from backend"); // DEBUG
       EventBus.emit("dataUpdated");
     });
 
@@ -33,7 +33,7 @@ export function initializeRelay() {
     };
 
     eventSource.addEventListener("open", () => {
-      console.log("[Relay] SSE connection established.");
+      console.log("[Relay] SSE connection established."); // DEBUG
     });
   }
 }

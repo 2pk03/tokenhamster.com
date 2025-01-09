@@ -24,6 +24,7 @@ const globalCors = {
 // SSE-specific CORS logic
 const sseCors = (req, res) => {
     const origin = req.headers.origin;
+    console.log(`[SSE] Origin Header Received: ${origin}`); // Debug logging
 
     if (allowedOrigins.includes(origin)) {
         res.setHeader('Access-Control-Allow-Origin', origin);
