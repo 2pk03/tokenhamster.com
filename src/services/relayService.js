@@ -4,7 +4,11 @@ import EventBus from "./eventBus";
 let eventSource = null;
 
 export function initializeRelay() {
-  const baseUrl = process.env.VUE_APP_API_BASE_URL;
+  const baseUrl = process.env.VUE_APP_EVENT_BASE_URL;
+  console.log("Environment Variables in relayService.js:", process.env); // DEBUG
+  console.log("VUE_APP_API_BASE_URL:", process.env.VUE_APP_EVENT_BASE_URL); // DEBUG
+
+
 
   if (!eventSource) {
     const url = `${baseUrl}/events`;
