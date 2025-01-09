@@ -103,14 +103,15 @@ main {
 .graphs-section {
     display: flex;
     flex-direction: column;
-    gap: 20px;
-    padding: var(--spacing-base);
+    padding: 10px;
     background: #fff;
     border: 1px solid var(--highlight-border-color);
     border-radius: 8px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     width: 60%;
     box-sizing: border-box;
+    margin-right:10px;
+    margin-left:10px;
     overflow: hidden;
 }
 

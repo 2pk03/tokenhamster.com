@@ -6,7 +6,7 @@ const { API_KEY_CRYPTOCOMPARE, CRYPTOCOMPARE_BASE_URL } = require('../config');
 const { broadcast } = require("../middleware/eventbus/express");
 
 const pollingIntervals = {};
-const DEV_POLLING_INTERVAL = 60 * 60 * 1000;
+const DEV_POLLING_INTERVAL = 1 * 60 * 1000;
 const PROD_POLLING_INTERVAL = 7.5 * 60 * 1000;
 const DEFAULT_POLLING_INTERVAL = process.env.DEV === '1' ? DEV_POLLING_INTERVAL : PROD_POLLING_INTERVAL;
 

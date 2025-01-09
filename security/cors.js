@@ -24,15 +24,16 @@ const globalCors = {
 // SSE-specific CORS logic
 const sseCors = (req, res) => {
     const origin = req.headers.origin;
+
     if (allowedOrigins.includes(origin)) {
         res.setHeader('Access-Control-Allow-Origin', origin);
         res.setHeader('Access-Control-Allow-Credentials', 'true');
+        return true; // Allow the request to proceed
     } else {
         console.error(`[CORS] SSE origin not allowed: ${origin}`);
         res.status(403).send('Not allowed by CORS');
-        return false; // Stop further processing
+        return false; // Block further processing
     }
-    return true; // Proceed with the request
 };
 
 module.exports = { globalCors, sseCors };
