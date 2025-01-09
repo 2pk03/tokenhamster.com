@@ -6,6 +6,17 @@ import router from './router';
 import './assets/global.css';
 import store from './store';
 import { jwtDecode } from 'jwt-decode';
+import { initializeRelay, closeRelay } from "@/services/relayService";
+
+const app = createApp(App);
+
+initializeRelay();
+app.mixin({
+    beforeUnmount() {
+      closeRelay();
+    },
+  });
+
 
 // Refresh token interval
 let refreshInterval = null;

@@ -84,7 +84,7 @@
 <script>
 import { getProfileImageUrl } from '@/api';
 import api from "@/api";
-import EventBus from "@/eventBus";
+import EventBus from "../services/eventBus";
 
 export default {
   name: "App",
@@ -153,7 +153,6 @@ export default {
     closeAddTokenModal() {
       this.showAddTokenModal = false;
       this.resetTokenForm();
-      EventBus.emit("refreshPortfolio");
     },
     resetTokenForm() {
       this.searchQuery = "";
@@ -213,8 +212,6 @@ export default {
         }
 
         alert("Token added successfully!");
-
-        // Emit the event to update current prices
         EventBus.emit("updateCurrentPrices");
 
         // Reset form and close modal
@@ -258,11 +255,15 @@ export default {
     this.loadUserImage();
     this.fetchLastPoll();
     EventBus.on("userLoggedIn", this.loadUserImage);
+    EventBus.on("dataUpdated", this.fetchLastPoll);
+    this.fetchLastPoll();
+    
     document.addEventListener("click", this.closeDropdown);
   },
   beforeUnmount() {
     document.removeEventListener("click", this.closeDropdown);
     EventBus.off("userLoggedIn", this.loadUserProfile);
+    EventBus.off("dataUpdated", this.fetchLastPoll);
   },
 };
 </script>

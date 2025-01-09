@@ -789,7 +789,7 @@ async function getAllActiveUserIds() {
                 reject(err);
             } else {
                 const userIds = rows.map(row => row.user_id);
-                console.log('Fetched Active User IDs:', userIds); // DEBUG
+                // console.log('Fetched Active User IDs:', userIds); // DEBUG
                 resolve(userIds);
             }
         });

@@ -32,9 +32,10 @@
           <span class="overview-invest">Perf:</span><span class="overview-performance"
             :class="percentageChange >= 0 ? 'win' : 'loss'"> {{
               percentageChange.toFixed(2) }}%</span>
-          <span class="overview-invest">W/L:</span><span class="overview-performance" :class="totalWinLoss >= 0 ? 'win' : 'loss'">
+          <span class="overview-invest">W/L:</span><span class="overview-performance"
+            :class="totalWinLoss >= 0 ? 'win' : 'loss'">
             {{ totalWinLoss >= 0 ? '+' : '' }}{{ formattedTotalWinLoss }}
-        </span>
+          </span>
           <span class="overview-invest">Daily W/L:</span><span class="overview-performance"
             :class="dailyDifference >= 0 ? 'win' : 'loss'">
             {{ dailyDifference >= 0 ? '+' : '' }}{{ formatNumber(dailyDifference) }}
@@ -54,16 +55,18 @@
         <tbody>
           <tr v-for="token in portfolio" :key="token.symbol">
             <td>{{ token.symbol }}<br>
-             [{{ formatDateEU(token.purchaseDate) }}]</td>
+              [{{ formatDateEU(token.purchaseDate) }}]</td>
             <td>{{ formatCompactAmount(token.amountBought) }}<br>
-            [{{ (token.purchasePrice) }} ({{ token.purchaseCurrency }})]</td>
-            <td> <span :class="(token.amountBought * (token.currentPriceConverted || token.currentPrice)) >= (token.amountBought * token.purchasePrice) ? 'win' : 'loss'">
-              {{ formatNumber(token.amountBought * (token.currentPriceConverted || token.currentPrice)) }} </span><br>
+              [{{ (token.purchasePrice) }} ({{ token.purchaseCurrency }})]</td>
+            <td> <span
+                :class="(token.amountBought * (token.currentPriceConverted || token.currentPrice)) >= (token.amountBought * token.purchasePrice) ? 'win' : 'loss'">
+                {{ formatNumber(token.amountBought * (token.currentPriceConverted || token.currentPrice)) }} </span><br>
               [{{ formatNumber(token.amountBought * token.purchasePrice) }}] </td>
             <td><span :class="token.winLoss >= 0 ? 'win' : 'loss'">
-              {{ formatPrice(((token.amountBought * (token.currentPriceConverted || token.currentPrice)) -
-                (token.amountBought * token.purchasePrice)) / (token.amountBought * token.purchasePrice) * 100) }}%</span><br>
-                [{{ formatFullPrice(token.currentPriceConverted || token.currentPrice) }}]</td>
+                {{ formatPrice(((token.amountBought * (token.currentPriceConverted || token.currentPrice)) -
+                  (token.amountBought * token.purchasePrice)) / (token.amountBought * token.purchasePrice) * 100)
+                }}%</span><br>
+              [{{ formatFullPrice(token.currentPriceConverted || token.currentPrice) }}]</td>
             <td>
               <button class="button-small-imp" @click="confirmRemove(token)">Delete</button>
             </td>
@@ -85,7 +88,7 @@
 
 <script>
 import api from "@/api";
-import EventBus from "@/eventBus";
+import EventBus from "@/services/eventBus";
 import VueApexCharts from "vue3-apexcharts";
 
 export default {
@@ -177,12 +180,12 @@ export default {
       );
     },
     totalWinLoss() {
-        const totalSum = this.totalValue || 0;
-        const totalInvest = this.totalInvest || 0;
-        return totalSum - totalInvest;
+      const totalSum = this.totalValue || 0;
+      const totalInvest = this.totalInvest || 0;
+      return totalSum - totalInvest;
     },
     formattedTotalWinLoss() {
-        return this.formatNumber(this.totalWinLoss);
+      return this.formatNumber(this.totalWinLoss);
     },
     portfolioChartSeries() {
       return [
@@ -210,10 +213,10 @@ export default {
         yaxis: {
           ...this.portfolioChartOptions.yaxis,
           title: {
-            text: `Value (${this.selectedCurrency})`, // Update the y-axis title dynamically
+            text: `Value (${this.selectedCurrency})`,
           },
           labels: {
-            formatter: (value) => `${currencySymbol}${value.toFixed(2)}`, // Dynamic label formatter
+            formatter: (value) => `${currencySymbol}${value.toFixed(2)}`, 
           },
         },
       };
@@ -230,11 +233,11 @@ export default {
     // polling
     startPolling() {
       if (this.pollingInterval) {
-        clearInterval(this.pollingInterval); // Clear any existing interval
+        clearInterval(this.pollingInterval); 
       }
       this.pollingInterval = setInterval(async () => {
-        await this.updateCurrentPrices(); // Fetch updated prices
-      }, 30000); // Poll every 30 seconds
+        await this.updateCurrentPrices(); 
+      }, 30000); 
     },
     stopPolling() {
       if (this.pollingInterval) {
@@ -296,9 +299,7 @@ export default {
       try {
         const response = await api.get('/user/portfolio/perf/data', {
           params: { currency: 'EUR', latest: true },
-        });
-
-        // Set totalValue from the latest API response
+        });        
         this.totalValue = response.data?.value || 0;
 
         // Calculate percentageChange dynamically
@@ -321,11 +322,11 @@ export default {
 
         this.dailyDifference = response.data.dailyDifference || 0;
 
-        console.log('Daily W/L fetched:', {
+       /* console.log('Daily W/L fetched:', {
           dailyDifference: this.dailyDifference,
           lastYesterdayValue: response.data.lastYesterdayValue,
           latestTodayValue: response.data.latestTodayValue,
-        });
+        }); */ // DEBUG
       } catch (err) {
         console.error('Failed to fetch daily W/L:', err.response?.data || err.message);
         this.dailyDifference = 0;
@@ -636,9 +637,9 @@ export default {
     // Register EventBus listeners
     EventBus.on("updateCurrentPrices", this.updateCurrentPrices);
     EventBus.on("refreshPortfolio", this.fetchPortfolioData);
+    EventBus.on("dataUpdated", this.fetchPortfolioChartData);
+    this.initPortfolioData();
     this.fetchDailyWinLoss();
-
-    // Fetch portfolio data and initialize chart
     this.initPortfolioData();
 
     // Set up the selected currency and fetch the initial total value
@@ -660,7 +661,9 @@ export default {
   beforeUnmount() {
     // Unregister EventBus listeners
     EventBus.off("updateCurrentPrices", this.updateCurrentPrices);
-    EventBus.off("refreshPortfolio", this.fetchPortfolioData);
+    EventBus.off("refreshPortfolio", this.fetchPortfolioData);  
+    EventBus.off("dataUpdated", this.fetchPortfolioChartData);
+    
     if (this.refreshInterval) {
       clearInterval(this.refreshInterval); // Clear the interval on component unmount
     }

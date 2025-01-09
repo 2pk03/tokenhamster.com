@@ -23,18 +23,17 @@ function authenticateToken(req, res, next) {
     jwt.verify(token, SECRET_KEY, (err, user) => {
         if (err) {
             console.error('Invalid token:', err.message);
-            return res.status(403).json({ error: 'Invalid token' });
+            return res.status(403).json({ error: 'Invalid or expired token' });
         }
-
-        // Ensure necessary identifying information is present
+    
         if (!user.email) {
             console.error('Token missing required user email');
             return res.status(403).json({ error: 'Invalid token payload' });
         }
-
-        req.user = user; // Attach user details from token payload
+    
+        req.user = user;
         next();
-    });
+    });    
 }
 
 module.exports = authenticateToken;

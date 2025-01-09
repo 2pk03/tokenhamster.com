@@ -2,6 +2,7 @@
 
 import { jwtDecode } from 'jwt-decode';
 import axios from 'axios';
+import router from '../router';
 
 const state = {
     token: localStorage.getItem('token') || null,
@@ -31,13 +32,6 @@ const mutations = {
 
 
 const actions = {
-/*    // Username/password login => depricated!
-    async login({ commit }, credentials) {
-        const response = await axios.post('/api/user/auth/login', credentials);
-        commit('setToken', response.data.token);
-        commit('setUser', jwtDecode(response.data.token));
-    },
-*/
 
     // handle token expiration
     monitorTokenExpiration({ state, dispatch }) {
@@ -96,8 +90,9 @@ const actions = {
 
     // Logout
     logout({ commit }) {
-        commit('clearAuth');
-    },
+        commit('clearToken');
+        router.push('/login'); 
+      },
 };
 
 const getters = {

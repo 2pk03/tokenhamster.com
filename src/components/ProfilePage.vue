@@ -155,7 +155,6 @@ export default {
     async fetchPreferredCurrency() {
       try {
         const response = await api.get('/user/profile/currency');
-        // Ensure we use the correct key from the API response
         this.preferredCurrency = response.data.preferred_currency || "N/A";
         this.currencyError = null; // Clear any previous errors
       } catch (error) {

@@ -1,5 +1,8 @@
 // src/api.js
 import axios from 'axios';
+import { jwtDecode } from 'jwt-decode';
+import store from './store';
+import router from './router';
 
 // Use environment variable for the backend URL
 const api = axios.create({
@@ -13,6 +16,17 @@ api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
     if (token) {
+      const decoded = jwtDecode(token);
+      const now = Math.floor(Date.now() / 1000);
+
+      if (decoded.exp <= now) {
+        console.warn('Token expired. Logging out and redirecting to login.');
+        localStorage.removeItem('token');
+        store.dispatch('auth/logout');
+        router.push('/login');
+        return Promise.reject(new Error('Token expired.'));
+      }
+
       config.headers.Authorization = `Bearer ${token}`;
     }
     return config;
@@ -25,8 +39,10 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response && (error.response.status === 401 || error.response.status === 403)) {
-      const event = new Event('sessionTimeout');
-      window.dispatchEvent(event);
+      console.warn('Session expired. Redirecting to login.');
+      localStorage.removeItem('token'); 
+      store.dispatch('auth/logout'); 
+      router.push('/login'); 
     }
     return Promise.reject(error);
   }

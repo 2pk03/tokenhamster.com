@@ -42,7 +42,7 @@
 <script>
 import api from "@/api";
 import { jwtDecode } from 'jwt-decode';
-import EventBus from "@/eventBus";
+import EventBus from "@/services/eventBus";
 
 export default {
   name: "LoginPage",

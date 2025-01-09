@@ -3,12 +3,11 @@
 const axios = require('axios');
 const { db, calculateAndSavePortfolioValues, getAllActiveUserIds } = require('../database');
 const { API_KEY_CRYPTOCOMPARE, CRYPTOCOMPARE_BASE_URL } = require('../config');
+const { broadcast } = require("../middleware/eventbus/express");
 
 const pollingIntervals = {};
 const DEV_POLLING_INTERVAL = 60 * 60 * 1000;
 const PROD_POLLING_INTERVAL = 7.5 * 60 * 1000;
-
-// Use the correct interval based on the environment
 const DEFAULT_POLLING_INTERVAL = process.env.DEV === '1' ? DEV_POLLING_INTERVAL : PROD_POLLING_INTERVAL;
 
 /* 
@@ -39,7 +38,7 @@ async function fetchCryptoPrices(fsyms, tsyms) {
         const response = await axios.get(`${CRYPTOCOMPARE_BASE_URL}/pricemulti`, {
             params: { fsyms, tsyms, api_key: API_KEY_CRYPTOCOMPARE },
         });
-        console.log('API Response:', JSON.stringify(response.data, null, 2)); // Debugging
+        // console.log('API Response:', JSON.stringify(response.data, null, 2)); // Debug
         return response.data;
     } catch (err) {
         console.error(`Error fetching prices for fsyms=[${fsyms}] and tsyms=[${tsyms}]:`, err.message);
@@ -146,7 +145,7 @@ async function pollPricesForActiveTokens() {
 
             const response = await fetchCryptoPrices(fsyms, tsyms);
             if (response) {
-                console.log('Fetched prices for batch:', batch); // Debugging
+                // console.log('Fetched prices for batch:', batch); // DEBUG
 
                 // Save individual token data
                 Object.entries(response).forEach(([symbol, prices]) => {
@@ -159,7 +158,7 @@ async function pollPricesForActiveTokens() {
                     } else {
                         console.warn(`Incomplete data for ${symbol}. Skipping.`);
                     }
-                });                
+                });
             } else {
                 console.error(`Failed to fetch price data for batch: ${fsyms}`);
             }
@@ -288,18 +287,17 @@ const refreshPolling = async () => {
         if (trackedPairs.length === 0) {
             console.warn('No cryptos found to poll. Adding placeholder BTC/USD.');
             if (!pollingIntervals['BTC-USD']) {
-                addTokenToPolling('BTC', 'USD'); // Add placeholder token if not already added
+                addTokenToPolling('BTC', 'USD'); // placeholder to start for fresh installs
             }
             return;
         }
 
-        // Add BTC as a default token
+        // always track BTC
         const uniqueSymbols = [...new Set(trackedPairs.map(({ crypto_symbol }) => crypto_symbol))];
         if (!uniqueSymbols.includes('BTC')) {
-            uniqueSymbols.push('BTC'); // Ensure BTC is always included
+            uniqueSymbols.push('BTC');
         }
-
-        // Group tokens into batches for batch polling
+        // batch polling grouping
         const batches = [];
         for (let i = 0; i < uniqueSymbols.length; i += 100) {
             batches.push(uniqueSymbols.slice(i, i + 100));
@@ -327,6 +325,7 @@ const refreshPolling = async () => {
                         console.warn(`Incomplete data for ${symbol}. Skipping.`);
                     }
                 });
+                    broadcast("dataUpdated"); // Push event to bus
             } else {
                 console.error(`Failed to fetch prices for batch: ${fsyms}`);
             }
@@ -340,12 +339,10 @@ const refreshPolling = async () => {
 // Start polling for all active cryptos and currencies
 function startPolling() {
     console.log('Starting polling service...');
-
-    // Perform initial batch polling
     refreshPolling();
     startPortfolioCalculation();
 
-    // Periodic batch polling
+    // final batch polling
     setInterval(refreshPolling, DEFAULT_POLLING_INTERVAL);
 }
 

@@ -7,19 +7,18 @@ const crypto = require('crypto');
 const readline = require('readline');
 const { startPolling, stopPolling } = require('./services/pollingService');
 const { initializeDatabase, updateSupportedTokens } = require('./database');
-// const rateLimit = require('express-rate-limit'); // Rate limiter - Uncomment if needed
+const { globalCors } = require('./security/cors'); // Import only globalCors
+const { eventBusMiddleware } = require("./middleware/eventbus/express");
+
+let SECRET_KEY = process.env.SECRET_KEY;
+
 
 const app = express();
+app.use(express.json());
 const PORT = process.env.PORT || 4467;
 app.set('trust proxy', true);
 
 const CRYPTOCOMPARE_BASE_URL = 'https://min-api.cryptocompare.com/data';
-
-// Existing environment variables
-let API_KEY_CRYPTOCOMPARE = process.env.API_KEY_CRYPTOCOMPARE;
-let VUE_APP_GOOGLE_CLIENT_ID = process.env.VUE_APP_GOOGLE_CLIENT_ID;
-let VUE_APP_GOOGLE_CLIENT_SECRET = process.env.VUE_APP_GOOGLE_CLIENT_SECRET;
-let SECRET_KEY = process.env.SECRET_KEY;
 
 // Helper function to prompt user input for missing secrets
 const promptInput = async (query) => {
@@ -35,7 +34,7 @@ const promptInput = async (query) => {
     });
 };
 
-// check required secrets
+// Check required secrets
 async function ensureSecrets() {
     const requiredSecrets = [
         'API_KEY_CRYPTOCOMPARE',
@@ -56,44 +55,27 @@ async function ensureSecrets() {
     // Handle optional secrets
     if (!SECRET_KEY) {
         SECRET_KEY = crypto.randomBytes(64).toString('hex');
-        // console.log('[INFO] JWT secret created dynamically.'); // DEBUG
         secretsUpdated = true;
     }
 
     // Update .env file if optional secrets were generated
     if (secretsUpdated) {
-        // console.log('[INFO] Updating .env file with new secrets...'); // DEBUG
         const envContent = Object.entries({ SECRET_KEY })
             .map(([key, value]) => `${key}=${value}`)
             .join('\n');
         fs.writeFileSync('.env', envContent, { flag: 'a' }); // Append to .env
-        // console.log('[INFO] .env file updated successfully.'); // DEBUG
     }
 }
 
-// Middleware setup
+// Initialize the app
 async function initializeApp() {
     await ensureSecrets(); // Validate and collect secrets
 
     app.use(bodyParser.json());
-    const corsOptions = {
-        origin: function (origin, callback) {
-            // console.log(`[DEBUG] Incoming origin: ${origin}`); //DEBUG
-            const allowedOrigins = ['https://www.tokenhamster.com', 'https://tokenhamster.com', 'http://localhost:8080'];
-            if (!origin || allowedOrigins.includes(origin)) {
-                callback(null, true);
-            } else {
-                console.error(`[CORS] Origin not allowed: ${origin}`);
-                callback(new Error('Not allowed by CORS'));
-            }
-        },
-        methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
-        allowedHeaders: ['Authorization', 'Content-Type'],
-        credentials: true,
-    };
+    app.use(cors(globalCors)); // Use global CORS configuration
 
-    app.use(cors(corsOptions));
-
+    // SSE Route via eventBusMiddleware
+    app.get('/events', eventBusMiddleware);
 
     // Uncomment if rate limiting is required
     /*
