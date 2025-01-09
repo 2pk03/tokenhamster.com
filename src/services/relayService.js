@@ -4,25 +4,23 @@ import EventBus from "./eventBus";
 let eventSource = null;
 
 export function initializeRelay() {
-  const baseUrl = process.env.VUE_APP_BACKEND_URL || "http://localhost:4467";
+  const baseUrl = process.env.VUE_APP_API_BASE_URL;
 
   if (!eventSource) {
     const url = `${baseUrl}/events`;
-    console.log(`[Relay] Initializing EventSource with URL: ${url}`); // Debug
+    console.log(`[Relay] Initializing EventSource with URL: ${url}`);
 
     eventSource = new EventSource(url);
 
-    // Handle incoming dataUpdated events
     eventSource.addEventListener("dataUpdated", () => {
-      console.log("[Relay] Received dataUpdated event from backend"); // Debug
+      console.log("[Relay] Received dataUpdated event from backend");
       EventBus.emit("dataUpdated");
     });
 
-    // Handle SSE errors
     eventSource.onerror = (error) => {
       console.error("[Relay] SSE error occurred:", error);
 
-      // Check if the connection is closed and log additional info
+      // Debug readyState for troubleshooting
       if (eventSource.readyState === EventSource.CLOSED) {
         console.warn("[Relay] SSE connection closed by server.");
       } else if (eventSource.readyState === EventSource.CONNECTING) {
@@ -30,7 +28,6 @@ export function initializeRelay() {
       }
     };
 
-    // Optional: Handle connection established event
     eventSource.addEventListener("open", () => {
       console.log("[Relay] SSE connection established.");
     });
