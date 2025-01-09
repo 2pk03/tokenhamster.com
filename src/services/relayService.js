@@ -4,24 +4,36 @@ import EventBus from "./eventBus";
 let eventSource = null;
 
 export function initializeRelay() {
-  const baseUrl = process.env.VUE_APP_API_BASE_URL || "http://localhost:4467";
+  const baseUrl = process.env.VUE_APP_BACKEND_URL || "http://localhost:4467";
 
   if (!eventSource) {
-    eventSource = new EventSource(`${baseUrl}/events`);
+    const url = `${baseUrl}/events`;
+    console.log(`[Relay] Initializing EventSource with URL: ${url}`); // Debug
 
+    eventSource = new EventSource(url);
+
+    // Handle incoming dataUpdated events
     eventSource.addEventListener("dataUpdated", () => {
-      // console.log("[Relay] Received dataUpdated event from backend"); // DEBUG
-      EventBus.emit("dataUpdated"); // Emit event to frontend components
+      console.log("[Relay] Received dataUpdated event from backend"); // Debug
+      EventBus.emit("dataUpdated");
     });
 
-    // DEBUG
-    // eventSource.addEventListener("connected", (event) => {
-      // console.log("[Relay] SSE connected:", event.data); 
-    // });
-
+    // Handle SSE errors
     eventSource.onerror = (error) => {
-      console.error("[Relay] SSE error:", error);
+      console.error("[Relay] SSE error occurred:", error);
+
+      // Check if the connection is closed and log additional info
+      if (eventSource.readyState === EventSource.CLOSED) {
+        console.warn("[Relay] SSE connection closed by server.");
+      } else if (eventSource.readyState === EventSource.CONNECTING) {
+        console.warn("[Relay] SSE is retrying...");
+      }
     };
+
+    // Optional: Handle connection established event
+    eventSource.addEventListener("open", () => {
+      console.log("[Relay] SSE connection established.");
+    });
   }
 }
 
