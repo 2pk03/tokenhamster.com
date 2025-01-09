@@ -353,7 +353,7 @@ function startPortfolioCalculation() {
         try {
             const userIds = await getAllActiveUserIds();
             for (const userId of userIds) {
-                console.log(`Calculating portfolio values for user ${userId}...`); // DEBUG
+                // console.log(`Calculating portfolio values for user ${userId}...`); // DEBUG
                 await calculateAndSavePortfolioValues(userId);
             }
         } catch (err) {
