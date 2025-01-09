@@ -22,7 +22,7 @@ export function initializeRelay() {
     });
 
     eventSource.onerror = (error) => {
-      // console.error("[Relay] SSE error occurred:", error);
+      console.error("[Relay] SSE error occurred:", error);
 
       // Debug readyState for troubleshooting
       if (eventSource.readyState === EventSource.CLOSED) {
