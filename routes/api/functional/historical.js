@@ -25,82 +25,86 @@ router.get('/tokens', async (req, res) => {
 
 router.get('/:crypto_symbol', async (req, res) => {
     const { crypto_symbol } = req.params;
-    const { fields } = req.query;
-
-    const validFields = ['date_time', 'open', 'high', 'low', 'volume_from', 'volume_to', 'market_cap'];
-
-    // If fields are provided, filter and validate them; otherwise, default to all valid fields
-    const selectedFields = fields ? fields.split(',') : validFields;
-    const sanitizedFields = selectedFields.filter(field => validFields.includes(field));
-
-    if (sanitizedFields.length === 0) {
-        return res.status(400).json({ error: 'No valid fields specified.' });
-    }
-
-    const query = `
-        SELECT ${sanitizedFields.map(field => `COALESCE(${field}, NULL) AS ${field}`).join(', ')}
+    const { fields, start_date, end_date } = req.query;
+  
+    try {
+      // Build dynamic field selection for SQL
+      const selectedFields = fields
+        ? fields.split(',').map(field => `COALESCE(${field}, 10) AS ${field}`).join(', ')
+        : '*'; // Replace NULL with 10 for all fields listed in 'fields'
+  
+      let query = `
+        SELECT ${selectedFields}
         FROM historical_data
         WHERE crypto_symbol = ?
-          AND date_time >= DATETIME('now', '-30 days')
-        ORDER BY date_time ASC;
+      `;
+  
+      const queryParams = [crypto_symbol];
+  
+      if (start_date) {
+        query += ' AND date_time >= ?';
+        queryParams.push(start_date);
+      }
+      if (end_date) {
+        query += ' AND date_time <= ?';
+        queryParams.push(end_date);
+      }
+  
+      query += ' ORDER BY date_time ASC';
+  
+      db.all(query, queryParams, (err, rows) => {
+        if (err) {
+          console.error('Error fetching historical data:', err.message);
+          return res.status(500).json({ error: 'Internal server error' });
+        }
+  
+        res.json({
+          total_count: rows.length,
+          data: rows,
+        });
+      });
+    } catch (error) {
+      console.error('Error in historical data endpoint:', error.message);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });  
+  
+  router.get('/:crypto_symbol/cs', async (req, res) => {
+    const { crypto_symbol } = req.params;
+    const { time = '15', start_date, end_date } = req.query;
+
+    const intervalFormat = {
+        '15': '%Y-%m-%d %H:%M',
+        '30': '%Y-%m-%d %H:%M',
+        '60': '%Y-%m-%d %H:00',
+    }[time] || '%Y-%m-%d %H:%M';
+
+    const query = `
+        SELECT 
+            crypto_symbol,
+            strftime('${intervalFormat}', date_time) AS period,
+            FIRST_VALUE(price_usd) OVER (PARTITION BY strftime('${intervalFormat}', date_time) ORDER BY date_time) AS open,
+            MAX(price_usd) AS high,
+            MIN(price_usd) AS low,
+            LAST_VALUE(price_usd) OVER (PARTITION BY strftime('${intervalFormat}', date_time) ORDER BY date_time) AS close,
+            SUM(volume_to) AS total_volume
+        FROM historical_data
+        WHERE crypto_symbol = ?
+          AND date_time >= ?
+          AND date_time <= ?
+        GROUP BY period
+        ORDER BY period;
     `;
 
-    db.all(query, [crypto_symbol], (err, rows) => {
+    db.all(query, [crypto_symbol, start_date, end_date], (err, rows) => {
         if (err) {
-            console.error(`Error fetching historical data for ${crypto_symbol}:`, err.message);
+            console.error(`Error fetching candlestick data for ${crypto_symbol}:`, err.message);
             return res.status(500).json({ error: 'Internal server error' });
         }
 
-        res.json({
-            total_count: rows.length,
-            data: rows,
-        });
+        res.json(rows);
     });
 });
-  
-router.get('/:crypto_symbol/aggregated', async (req, res) => {
-  const { crypto_symbol } = req.params;
-  const { interval, start_date, end_date } = req.query;
 
-  if (!interval || !['hour', 'day'].includes(interval)) {
-      return res.status(400).json({ error: 'Invalid interval. Use "hour" or "day".' });
-  }
-
-  let query = `
-      SELECT 
-          crypto_symbol,
-          strftime('${interval === 'day' ? '%Y-%m-%d' : '%Y-%m-%d %H:00'}', date_time) AS period,
-          AVG(price_usd) AS avg_price_usd,
-          AVG(price_eur) AS avg_price_eur,
-          AVG(price_btc) AS avg_price_btc,
-          AVG(market_cap) AS avg_market_cap,
-          SUM(volume_from) AS total_volume_from,
-          SUM(volume_to) AS total_volume_to
-      FROM historical_data
-      WHERE crypto_symbol = ?
-  `;
-  const params = [crypto_symbol];
-
-  if (start_date) {
-      query += ' AND date_time >= ?';
-      params.push(start_date);
-  }
-
-  if (end_date) {
-      query += ' AND date_time <= ?';
-      params.push(end_date);
-  }
-
-  query += ' GROUP BY period ORDER BY period ASC';
-
-  db.all(query, params, (err, rows) => {
-      if (err) {
-          console.error(`Error fetching aggregated data for ${crypto_symbol}:`, err.message);
-          return res.status(500).json({ error: 'Internal server error' });
-      }
-
-      res.json(rows);
-  });
-});
 
 module.exports = router;

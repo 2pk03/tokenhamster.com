@@ -36,17 +36,14 @@
 
           <!-- ApexCharts Rendering -->
           <div class="chart-render">
-            <apexchart type="line" height="400" :options="last30DaysChartOptions" :series="last30DaysChartSeries" />
+            <apexchart :type="last30DaysChartOptions.chart.type" :height="last30DaysChartOptions.chart.height"
+              :options="last30DaysChartOptions" :series="last30DaysChartSeries" />
           </div>
           <!-- Chart Type Selection -->
           <div class="chart-type-controls">
             <label>
               <input type="radio" value="price" v-model="selectedChartType" @change="fetchHistoricalData" />
               Price
-            </label>
-            <label>
-              <input type="radio" value="volume" v-model="selectedChartType" @change="fetchHistoricalData" />
-              Volume
             </label>
             <label>
               <input type="radio" value="candlestick" v-model="selectedChartType" @change="fetchHistoricalData" />
@@ -156,13 +153,12 @@ export default {
       currencyError: 'N/A',
       dailyDifference: 0,
       totalSum: 0,
-      tokens: [],
-      selectedToken: [],
-      selectedChartType: 'price',
       last30DaysChartData: [],
       portfolioChartData: [],
-      last30DaysChartSeries: [],
       PortfolioChartSeries: [],
+      selectedToken: ["BTC"],
+      selectedChartType: "price",
+      tokens: [],
 
       // ApexChart options and series
       portfolioChartOptions: {
@@ -203,25 +199,43 @@ export default {
           y: { formatter: (value) => `$${value.toFixed(2)}` },
         },
       },
-
+      last30DaysChartSeries: [
+        {
+          name: "Price",
+          data: [], // Ensure an empty array is provided
+        },
+      ],
       last30DaysChartOptions: {
         chart: {
-          type: "line", // Default to line chart for price/volume
           height: 400,
-          animations: {
-            enabled: true,
-          },
+          type: "line",
+          stacked: false, // Ensure no stacking by default
         },
         xaxis: {
           type: "datetime",
           title: { text: "Date" },
         },
-        yaxis: {
-          title: { text: "Value" },
-        },
+        yaxis: [
+          {
+            title: { text: "Price (USD)" },
+            labels: {
+              formatter: (value) => `$${value.toFixed(2)}`,
+            },
+          },
+          {
+            opposite: true,
+            title: { text: "Volume" },
+            labels: {
+              formatter: (value) =>
+                value >= 1e6 ? `${(value / 1e6).toFixed(2)}M` : value.toFixed(0),
+            },
+          },
+        ],
         tooltip: {
+          shared: true,
           x: { format: "dd MMM yyyy" },
         },
+        colors: ["#1f77b4", "#aec7e8"], // Custom colors
       },
     };
   },
@@ -313,8 +327,46 @@ export default {
       // console.log(`Currency changed to: ${newCurrency}`); // DEBUG
       this.fetchCurrencyValue(newCurrency);
     },
-    selectedToken: "fetchHistoricalData", // Refetch data when tokens change
-    selectedChartType: "fetchHistoricalData", // Refetch data when chart type changes
+    selectedToken: "fetchHistoricalData",
+    // selectedChartType: "fetchHistoricalData",
+
+    selectedChartType(newType) {
+      if (newType === "candlestick") {
+        // Update chart type to candlestick
+        this.last30DaysChartOptions.chart.type = "candlestick";
+
+        // Update Y-axis for candlestick
+        this.last30DaysChartOptions.yaxis = [
+          {
+            title: { text: "Price (USD)" }, // Only one Y-axis for candlestick
+          },
+        ];
+      } else {
+        // Update chart type to line for other chart types
+        this.last30DaysChartOptions.chart.type = "line";
+
+        // Update Y-axis for line chart
+        this.last30DaysChartOptions.yaxis = [
+          {
+            title: { text: "Price (USD)" },
+            labels: {
+              formatter: (value) => `$${value.toFixed(2)}`,
+            },
+          },
+          {
+            opposite: true,
+            title: { text: "Volume" },
+            labels: {
+              formatter: (value) =>
+                value >= 1e6 ? `${(value / 1e6).toFixed(2)}M` : value.toFixed(0),
+            },
+          },
+        ];
+      }
+
+      console.log("Updated Chart Options:", JSON.stringify(this.last30DaysChartOptions, null, 2));
+      console.log("Updated Series:", this.last30DaysChartSeries);
+    },
   },
 
   methods: {
@@ -685,7 +737,11 @@ export default {
       }
     },
 
+    /**
+     * Fetch data for the selected tokens for 30day chart
+     */
 
+    // 1. get all available tokens
     async fetchTokens() {
       try {
         console.log('Fetching tokens...');
@@ -697,9 +753,7 @@ export default {
       }
     },
 
-    /**
-     * Fetch data for the selected tokens and update the chart
-     */
+    // get the data
     async fetchHistoricalData() {
       if (!this.selectedToken) return;
 
@@ -708,23 +762,17 @@ export default {
 
         const response = await api.get(`/functional/historical/${this.selectedToken}`, {
           params: {
-            fields:
-              this.selectedChartType === "candlestick"
-                ? "date_time,open,high,low,price_usd"
-                : this.selectedChartType === "volume"
-                  ? "date_time,volume_to"
-                  : "date_time,price_usd",
+            fields: this.selectedChartType === "candlestick"
+              ? "date_time,open,high,low,price_usd"
+              : "date_time,price_usd,volume_to",
           },
         });
 
-        console.log("Fetched Data:", response.data);
-
-        if (this.selectedChartType === "price") {
-          this.updatePriceChart(response.data.data);
-        } else if (this.selectedChartType === "volume") {
-          this.updateVolumeChart(response.data.data);
-        } else if (this.selectedChartType === "candlestick") {
+        if (this.selectedChartType === "candlestick") {
           this.updateCandlestickChart(response.data.data);
+          console.log("API Response for Candlestick:", response.data.data); // DEBUG
+        } else if (this.selectedChartType === "price") {
+          this.updatePriceChart(response.data.data);
         }
       } catch (err) {
         console.error("Error fetching historical data:", err);
@@ -735,30 +783,26 @@ export default {
      * Update the chart series for price data
      */
     updatePriceChart(data) {
-      const transformedData = data.map((item) => ({
+      const priceData = data.map((item) => ({
         x: new Date(item.date_time).getTime(),
-        y: item.price_usd || 0, // Replace null with 0
+        y: item.price_usd || 0,
       }));
+
+      const volumeData = data.map((item) => ({
+        x: new Date(item.date_time).getTime(),
+        y: item.volume_to || 0,
+      }));
+
       this.last30DaysChartSeries = [
         {
-          name: "Price",
-          data: transformedData,
+          name: "Price (USD)",
+          type: "line",
+          data: priceData,
         },
-      ];
-    },
-
-    /**
-     * Update the chart series for volume data
-     */
-    updateVolumeChart(data) {
-      const transformedData = data.map((item) => ({
-        x: new Date(item.date_time).getTime(),
-        y: item.volume_to || 0, // Replace null with 0
-      }));
-      this.last30DaysChartSeries = [
         {
           name: "Volume",
-          data: transformedData,
+          type: "column",
+          data: volumeData,
         },
       ];
     },
@@ -767,33 +811,25 @@ export default {
      * Update the chart series for candlestick data
      */
     updateCandlestickChart(data) {
-      const transformedData = data.map((item) => ({
-        x: new Date(item.date_time).getTime(),
-        y: [
-          item.open || 0, // Open
-          item.high || 0, // High
-          item.low || 0, // Low
-          item.price_usd || 0, // Close
-        ],
-      }));
+      // Filter out invalid data
+      const transformedData = data
+        .filter((d) => d.open !== null && d.high !== null && d.low !== null && d.price_usd !== null)
+        .map((d) => ({
+          x: new Date(d.date_time).getTime(), // Convert date_time to timestamp
+          y: [d.open, d.high, d.low, d.price_usd], // ApexCharts expects [open, high, low, close]
+        }));
+
+      // Update the series
       this.last30DaysChartSeries = [
         {
           name: "Candlestick",
           data: transformedData,
         },
       ];
-    },
 
-    /**
-     * Validate token selection (max 5 tokens)
-     */
-    validateSelection() {
-      if (this.selectedToken.length > 5) {
-        this.selectedToken.pop();
-        alert("You can only select up to 5 tokens.");
-      }
+      console.log("Transformed Candlestick Data:", this.last30DaysChartSeries);
     },
-
+    
     /* timezone stuff */
     formatDateTime(timestamp) {
       const date = new Date(timestamp);
@@ -840,6 +876,11 @@ export default {
     this.fetchDailyWinLoss();
     this.initPortfolioData();
     this.fetchTokens();
+
+    // DEBUG
+    console.log("Candlestick Chart Series:", this.last30DaysChartSeries);
+    console.log("Candlestick Chart Options:", this.last30DaysChartOptions);
+    // DEBUG EBD
 
     // Set up the selected currency and fetch the initial total value
     this.fetchPreferredCurrency()
