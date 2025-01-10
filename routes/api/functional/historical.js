@@ -4,103 +4,103 @@ const express = require('express');
 const router = express.Router();
 const axios = require('axios');
 const { db } = require('../../../database');
-const { API_KEY_CRYPTOCOMPARE, CRYPTOCOMPARE_BASE_URL } = require('../../../config');
 
-router.get('/fetch', async (req, res) => {
-    const { symbol } = req.query;
-  
-    if (!symbol) {
-      return res.status(400).json({ error: 'Symbol is required' });
+router.get('/tokens', async (req, res) => {
+    const query = `
+        SELECT DISTINCT crypto_symbol FROM historical_data ORDER BY crypto_symbol;
+    `;
+
+    db.all(query, [], (err, rows) => {
+        if (err) {
+            console.error('Error fetching token list:', err.message);
+            return res.status(500).json({ error: 'Internal server error' });
+        }
+
+        res.json({
+            total_count: rows.length,
+            data: rows.map(row => row.crypto_symbol),
+        });
+    });
+}); 
+
+router.get('/:crypto_symbol', async (req, res) => {
+    const { crypto_symbol } = req.params;
+    const { fields } = req.query;
+
+    const validFields = ['date_time', 'open', 'high', 'low', 'volume_from', 'volume_to', 'market_cap'];
+
+    // If fields are provided, filter and validate them; otherwise, default to all valid fields
+    const selectedFields = fields ? fields.split(',') : validFields;
+    const sanitizedFields = selectedFields.filter(field => validFields.includes(field));
+
+    if (sanitizedFields.length === 0) {
+        return res.status(400).json({ error: 'No valid fields specified.' });
     }
+
+    const query = `
+        SELECT ${sanitizedFields.map(field => `COALESCE(${field}, NULL) AS ${field}`).join(', ')}
+        FROM historical_data
+        WHERE crypto_symbol = ?
+          AND date_time >= DATETIME('now', '-30 days')
+        ORDER BY date_time ASC;
+    `;
+
+    db.all(query, [crypto_symbol], (err, rows) => {
+        if (err) {
+            console.error(`Error fetching historical data for ${crypto_symbol}:`, err.message);
+            return res.status(500).json({ error: 'Internal server error' });
+        }
+
+        res.json({
+            total_count: rows.length,
+            data: rows,
+        });
+    });
+});
   
-    const checkQuery = `
-      SELECT COUNT(*) AS count
+router.get('/:crypto_symbol/aggregated', async (req, res) => {
+  const { crypto_symbol } = req.params;
+  const { interval, start_date, end_date } = req.query;
+
+  if (!interval || !['hour', 'day'].includes(interval)) {
+      return res.status(400).json({ error: 'Invalid interval. Use "hour" or "day".' });
+  }
+
+  let query = `
+      SELECT 
+          crypto_symbol,
+          strftime('${interval === 'day' ? '%Y-%m-%d' : '%Y-%m-%d %H:00'}', date_time) AS period,
+          AVG(price_usd) AS avg_price_usd,
+          AVG(price_eur) AS avg_price_eur,
+          AVG(price_btc) AS avg_price_btc,
+          AVG(market_cap) AS avg_market_cap,
+          SUM(volume_from) AS total_volume_from,
+          SUM(volume_to) AS total_volume_to
       FROM historical_data
       WHERE crypto_symbol = ?
-    `;
-  
-    db.get(checkQuery, [symbol], async (err, row) => {
+  `;
+  const params = [crypto_symbol];
+
+  if (start_date) {
+      query += ' AND date_time >= ?';
+      params.push(start_date);
+  }
+
+  if (end_date) {
+      query += ' AND date_time <= ?';
+      params.push(end_date);
+  }
+
+  query += ' GROUP BY period ORDER BY period ASC';
+
+  db.all(query, params, (err, rows) => {
       if (err) {
-        console.error(`Error checking historical data for ${symbol}:`, err.message);
-        return res.status(500).json({ error: 'Error checking historical data' });
+          console.error(`Error fetching aggregated data for ${crypto_symbol}:`, err.message);
+          return res.status(500).json({ error: 'Internal server error' });
       }
-  
-      if (row.count > 0) {
-        return res.json({ message: `Historical data already exists for ${symbol}` });
-      }
-  
-      let allHistoricalData = [];
-      let hasMoreData = true;
-      let toTs = Math.floor(Date.now() / 1000); // Start with current timestamp
-  
-      try {
-        while (hasMoreData) {
-          // console.log(`Fetching historical data for ${symbol} until timestamp: ${toTs}`); // DEBUG
-          const response = await axios.get(`${CRYPTOCOMPARE_BASE_URL}/v2/histoday`, {
-            params: {
-              fsym: symbol,
-              tsym: 'USD',
-              limit: 2000, // Maximum limit
-              toTs,
-              api_key: API_KEY_CRYPTOCOMPARE,
-            },
-          });
-  
-          const historicalData = response.data.Data.Data;
-  
-          // Check if valid data is returned
-          if (!historicalData || historicalData.length === 0) {
-            // console.log(`No more data available for ${symbol}. Stopping.`); // DEBUG
-            hasMoreData = false;
-            break;
-          }
-  
-          allHistoricalData = allHistoricalData.concat(historicalData);
-  
-          // Update `toTs` to the earliest timestamp in the batch - 1 second
-          const oldestTimestamp = historicalData[0].time;
-  
-          if (oldestTimestamp <= 0) {
-            console.log(`Reached the oldest possible timestamp for ${symbol}. Stopping.`);
-            hasMoreData = false;
-            break;
-          }
-  
-          toTs = oldestTimestamp - 1;
-  
-          // Break if the response contains less than the limit, indicating no more data
-          if (historicalData.length < 2000) {
-            // console.log(`Fetched less than 2000 entries for ${symbol}. Assuming no more data.`); // DEBUG
-            hasMoreData = false;
-          }
-        }
-  
-        // Save all historical data to the database
-        const insertQuery = `
-          INSERT INTO historical_data (crypto_symbol, date_time, price_usd, volume, market_cap)
-          VALUES (?, ?, ?, ?, ?)
-        `;
-        const stmt = db.prepare(insertQuery);
-  
-        allHistoricalData.forEach((entry) => {
-          const date = new Date(entry.time * 1000).toISOString();
-          stmt.run([symbol, date, entry.close, entry.volumeto, entry.mktcap]);
-        });
-  
-        stmt.finalize((finalizeErr) => {
-          if (finalizeErr) {
-            console.error(`Error saving historical data for ${symbol}:`, finalizeErr.message);
-            return res.status(500).json({ error: 'Error saving historical data' });
-          }
-          console.log(`Complete historical data saved for ${symbol}`);
-          res.json({ message: `Complete historical data saved for ${symbol}` });
-        });
-      } catch (err) {
-        console.error(`Error fetching complete historical data for ${symbol}:`, err.message);
-        res.status(500).json({ error: 'Error fetching complete historical data' });
-      }
-    });
+
+      res.json(rows);
   });
-  
+});
 
 module.exports = router;

@@ -33,10 +33,10 @@ const startRefreshInterval = () => {
             const decoded = jwtDecode(token);
 
             if (decoded.exp <= now) {
-                console.warn('Token expired during refresh interval. Logging out.');
+                console.warn('Logging out.');
                 store.dispatch('auth/logout');
             } else {
-                console.log('Token still valid during refresh interval.');
+                console.log('Token valid.');
             }
         }
     }, 5 * 60 * 1000); // Refresh every 5 minutes

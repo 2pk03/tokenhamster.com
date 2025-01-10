@@ -13,7 +13,7 @@ const globalCors = {
             callback(null, true);
         } else {
             console.error(`[CORS] Origin not allowed: ${origin}`);
-            callback(new Error('Not allowed by CORS'));
+            callback(new Error('Not allowed.'));
         }
     },
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',

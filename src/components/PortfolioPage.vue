@@ -1,22 +1,63 @@
 <template>
-  <div class="content-container">
+  <div class="portfolio-container">
     <!-- Left Section: Graphs -->
     <div class="graphs-section">
-      <div class="performance-header">
-        <h2>Portfolio Performance
-          <label for="currency-select" class="currency-label">in:</label>
-        </h2>
-        <select id="currency-select" v-model="selectedCurrency" @change="fetchPortfolioChartData">
-          <option value="USD">USD</option>
-          <option value="EUR">EUR</option>
-        </select>
+      <div class="graphs-box">
+        <div class="performance-header">
+          <h2>Portfolio Performance
+            <label for="currency-select" class="currency-label">in:</label>
+          </h2>
+          <select id="currency-select" v-model="selectedCurrency" @change="fetchPortfolioChartData">
+            <option value="USD">USD</option>
+            <option value="EUR">EUR</option>
+          </select>
+        </div>
+
+        <!-- Portfolio Value Chart -->
+        <div class="chart-container">
+          <apexchart type="line" :options="updatedChartOptions" :series="portfolioChartSeries" height="200"></apexchart>
+        </div>
       </div>
 
-      <!-- Portfolio Value Chart -->
-      <div class="chart-container">
-        <apexchart type="line" :options="updatedChartOptions" :series="portfolioChartSeries" height="300"></apexchart>
+      <!-- Last 30 Days Chart -->
+      <div class="graph-container">
+        <div class="graphs-box">
+          <h2>Last 30 Days</h2>
+
+          <!-- Dropdown for Selecting Tokens -->
+          <div class="chart-controls">
+            <label for="crypto-select-30days">Select a Token:</label>
+            <select id="crypto-select-30days" v-model="selectedToken" @change="fetchHistoricalData">
+              <option v-for="token in tokens" :key="token" :value="token">
+                {{ token }}
+              </option>
+            </select>
+          </div>
+
+          <!-- ApexCharts Rendering -->
+          <div class="chart-render">
+            <apexchart type="line" height="400" :options="last30DaysChartOptions" :series="last30DaysChartSeries" />
+          </div>
+          <!-- Chart Type Selection -->
+          <div class="chart-type-controls">
+            <label>
+              <input type="radio" value="price" v-model="selectedChartType" @change="fetchHistoricalData" />
+              Price
+            </label>
+            <label>
+              <input type="radio" value="volume" v-model="selectedChartType" @change="fetchHistoricalData" />
+              Volume
+            </label>
+            <label>
+              <input type="radio" value="candlestick" v-model="selectedChartType" @change="fetchHistoricalData" />
+              Candlestick
+            </label>
+          </div>
+        </div>
       </div>
+
     </div>
+
 
     <!-- Right Section: Portfolio Table -->
     <div class="portfolio-section">
@@ -55,12 +96,13 @@
         <tbody>
           <tr v-for="token in portfolio" :key="token.symbol">
             <td>{{ token.symbol }}<br>
+              [{{ formatCompactAmount(token.amountBought) }}]</td>
+            <td>{{ (token.purchasePrice) }} ({{ token.purchaseCurrency }})<br>
               [{{ formatDateEU(token.purchaseDate) }}]</td>
-            <td>{{ formatCompactAmount(token.amountBought) }}<br>
-              [{{ (token.purchasePrice) }} ({{ token.purchaseCurrency }})]</td>
             <td> <span
                 :class="(token.amountBought * (token.currentPriceConverted || token.currentPrice)) >= (token.amountBought * token.purchasePrice) ? 'win' : 'loss'">
-                {{ formatNumber(token.amountBought * (token.currentPriceConverted || token.currentPrice)) }} </span><br>
+                {{ formatNumber(token.amountBought * (token.currentPriceConverted || token.currentPrice)) }}
+              </span><br>
               [{{ formatNumber(token.amountBought * token.purchasePrice) }}] </td>
             <td><span :class="token.winLoss >= 0 ? 'win' : 'loss'">
                 {{ formatPrice(((token.amountBought * (token.currentPriceConverted || token.currentPrice)) -
@@ -102,7 +144,6 @@ export default {
       pollingData: [],
       searchQuery: "",
       searchResults: [],
-      selectedToken: null,
       showDialog: false,
       tokenToRemove: null,
       purchaseDate: null,
@@ -110,12 +151,18 @@ export default {
       purchaseCurrency: "USD",
       pollingInterval: null,
       availableCurrencies: ["EUR", "USD"],
-      portfolioChartData: [],
       preferredCurrency: 'EUR',
       selectedCurrency: 'EUR',
       currencyError: 'N/A',
       dailyDifference: 0,
       totalSum: 0,
+      tokens: [],
+      selectedToken: [],
+      selectedChartType: 'price',
+      last30DaysChartData: [],
+      portfolioChartData: [],
+      last30DaysChartSeries: [],
+      PortfolioChartSeries: [],
 
       // ApexChart options and series
       portfolioChartOptions: {
@@ -134,11 +181,11 @@ export default {
           type: "datetime",
           title: {
             text: "Date",
-            style: { fontSize: "12px", color: "#333" }, // Ensure title is visible
+            style: { fontSize: "12px", color: "#333" },
           },
           labels: {
-            rotate: -45, // Rotates labels to save space
-            style: { fontSize: "10px", color: "#333" }, // Adjust label font
+            rotate: -45,
+            style: { fontSize: "10px", color: "#333" },
           },
         },
         yaxis: {
@@ -156,9 +203,26 @@ export default {
           y: { formatter: (value) => `$${value.toFixed(2)}` },
         },
       },
-      PortfolioChartSeries: [
-        { name: "Value", data: [] }, // Data to be populated dynamically
-      ],
+
+      last30DaysChartOptions: {
+        chart: {
+          type: "line", // Default to line chart for price/volume
+          height: 400,
+          animations: {
+            enabled: true,
+          },
+        },
+        xaxis: {
+          type: "datetime",
+          title: { text: "Date" },
+        },
+        yaxis: {
+          title: { text: "Value" },
+        },
+        tooltip: {
+          x: { format: "dd MMM yyyy" },
+        },
+      },
     };
   },
   components: {
@@ -216,7 +280,29 @@ export default {
             text: `Value (${this.selectedCurrency})`,
           },
           labels: {
-            formatter: (value) => `${currencySymbol}${value.toFixed(2)}`, 
+            formatter: (value) => `${currencySymbol}${value.toFixed(2)}`,
+          },
+        },
+      };
+    },
+    dynamicChartOptions() {
+      return {
+        ...this.last30DaysChartOptions,
+        chart: {
+          ...this.last30DaysChartOptions.chart,
+          type:
+            this.selectedChartType === "candlestick"
+              ? "candlestick"
+              : "line", // Adjust chart type dynamically
+        },
+        yaxis: {
+          title: {
+            text:
+              this.selectedChartType === "volume"
+                ? "Volume"
+                : this.selectedChartType === "candlestick"
+                  ? "Price (Candlestick)"
+                  : "Price (USD)",
           },
         },
       };
@@ -227,17 +313,19 @@ export default {
       // console.log(`Currency changed to: ${newCurrency}`); // DEBUG
       this.fetchCurrencyValue(newCurrency);
     },
+    selectedToken: "fetchHistoricalData", // Refetch data when tokens change
+    selectedChartType: "fetchHistoricalData", // Refetch data when chart type changes
   },
 
   methods: {
     // polling
     startPolling() {
       if (this.pollingInterval) {
-        clearInterval(this.pollingInterval); 
+        clearInterval(this.pollingInterval);
       }
       this.pollingInterval = setInterval(async () => {
-        await this.updateCurrentPrices(); 
-      }, 30000); 
+        await this.updateCurrentPrices();
+      }, 30000);
     },
     stopPolling() {
       if (this.pollingInterval) {
@@ -299,7 +387,7 @@ export default {
       try {
         const response = await api.get('/user/portfolio/perf/data', {
           params: { currency: 'EUR', latest: true },
-        });        
+        });
         this.totalValue = response.data?.value || 0;
 
         // Calculate percentageChange dynamically
@@ -322,11 +410,11 @@ export default {
 
         this.dailyDifference = response.data.dailyDifference || 0;
 
-       /* console.log('Daily W/L fetched:', {
-          dailyDifference: this.dailyDifference,
-          lastYesterdayValue: response.data.lastYesterdayValue,
-          latestTodayValue: response.data.latestTodayValue,
-        }); */ // DEBUG
+        /* console.log('Daily W/L fetched:', {
+           dailyDifference: this.dailyDifference,
+           lastYesterdayValue: response.data.lastYesterdayValue,
+           latestTodayValue: response.data.latestTodayValue,
+         }); */ // DEBUG
       } catch (err) {
         console.error('Failed to fetch daily W/L:', err.response?.data || err.message);
         this.dailyDifference = 0;
@@ -596,6 +684,116 @@ export default {
         this.portfolioChartData = [];
       }
     },
+
+
+    async fetchTokens() {
+      try {
+        console.log('Fetching tokens...');
+        const response = await api.get('/functional/historical/tokens');
+        console.log('Fetched tokens:', response.data); // Access data directly
+        this.tokens = response.data.data; // Adjust based on the structure
+      } catch (err) {
+        console.error('Error fetching tokens:', err);
+      }
+    },
+
+    /**
+     * Fetch data for the selected tokens and update the chart
+     */
+    async fetchHistoricalData() {
+      if (!this.selectedToken) return;
+
+      try {
+        console.log("Fetching historical data for:", this.selectedToken);
+
+        const response = await api.get(`/functional/historical/${this.selectedToken}`, {
+          params: {
+            fields:
+              this.selectedChartType === "candlestick"
+                ? "date_time,open,high,low,price_usd"
+                : this.selectedChartType === "volume"
+                  ? "date_time,volume_to"
+                  : "date_time,price_usd",
+          },
+        });
+
+        console.log("Fetched Data:", response.data);
+
+        if (this.selectedChartType === "price") {
+          this.updatePriceChart(response.data.data);
+        } else if (this.selectedChartType === "volume") {
+          this.updateVolumeChart(response.data.data);
+        } else if (this.selectedChartType === "candlestick") {
+          this.updateCandlestickChart(response.data.data);
+        }
+      } catch (err) {
+        console.error("Error fetching historical data:", err);
+      }
+    },
+
+    /**
+     * Update the chart series for price data
+     */
+    updatePriceChart(data) {
+      const transformedData = data.map((item) => ({
+        x: new Date(item.date_time).getTime(),
+        y: item.price_usd || 0, // Replace null with 0
+      }));
+      this.last30DaysChartSeries = [
+        {
+          name: "Price",
+          data: transformedData,
+        },
+      ];
+    },
+
+    /**
+     * Update the chart series for volume data
+     */
+    updateVolumeChart(data) {
+      const transformedData = data.map((item) => ({
+        x: new Date(item.date_time).getTime(),
+        y: item.volume_to || 0, // Replace null with 0
+      }));
+      this.last30DaysChartSeries = [
+        {
+          name: "Volume",
+          data: transformedData,
+        },
+      ];
+    },
+
+    /**
+     * Update the chart series for candlestick data
+     */
+    updateCandlestickChart(data) {
+      const transformedData = data.map((item) => ({
+        x: new Date(item.date_time).getTime(),
+        y: [
+          item.open || 0, // Open
+          item.high || 0, // High
+          item.low || 0, // Low
+          item.price_usd || 0, // Close
+        ],
+      }));
+      this.last30DaysChartSeries = [
+        {
+          name: "Candlestick",
+          data: transformedData,
+        },
+      ];
+    },
+
+    /**
+     * Validate token selection (max 5 tokens)
+     */
+    validateSelection() {
+      if (this.selectedToken.length > 5) {
+        this.selectedToken.pop();
+        alert("You can only select up to 5 tokens.");
+      }
+    },
+
     /* timezone stuff */
     formatDateTime(timestamp) {
       const date = new Date(timestamp);
@@ -641,6 +839,7 @@ export default {
     this.initPortfolioData();
     this.fetchDailyWinLoss();
     this.initPortfolioData();
+    this.fetchTokens();
 
     // Set up the selected currency and fetch the initial total value
     this.fetchPreferredCurrency()
@@ -661,14 +860,13 @@ export default {
   beforeUnmount() {
     // Unregister EventBus listeners
     EventBus.off("updateCurrentPrices", this.updateCurrentPrices);
-    EventBus.off("refreshPortfolio", this.fetchPortfolioData);  
+    EventBus.off("refreshPortfolio", this.fetchPortfolioData);
     EventBus.off("dataUpdated", this.fetchPortfolioChartData);
-    
+
     if (this.refreshInterval) {
       clearInterval(this.refreshInterval); // Clear the interval on component unmount
     }
   },
-
 };
 
 </script>
@@ -687,5 +885,44 @@ select {
   font-size: 1rem;
   max-width: 75px;
   margin-top: -5px;
+}
+
+.chart-controls {
+  margin-bottom: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+#crypto-select-30days {
+  width: 100%;
+  max-width: 300px;
+  padding: 5px;
+  border: 1px solid #cccccc;
+  border-radius: 4px;
+}
+
+.chart-type-controls {
+  display: flex;
+  gap: 20px;
+  margin-bottom: 20px;
+}
+
+.chart-render {
+  width: 100%;
+  overflow: hidden;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+
+  .chart-controls,
+  .chart-type-controls {
+    flex-direction: column;
+  }
+
+  .chart-render {
+    height: auto;
+  }
 }
 </style>

@@ -18,15 +18,14 @@ export function initializeRelay() {
       EventBus.emit("dataUpdated");
     });
 
+   
     eventSource.onerror = (error) => {
-      console.error("[Relay] SSE error occurred:", error);
-
-      // Handle SSE connection states
+      console.error("Connection Error:", error);
       if (eventSource.readyState === EventSource.CLOSED) {
-        console.warn("[Relay] SSE connection closed by server. Reconnecting...");
+        console.warn("closed. Reconnecting...");
         setTimeout(connect, 5000); // Retry after 5 seconds
       } else if (eventSource.readyState === EventSource.CONNECTING) {
-        console.warn("[Relay] SSE is retrying...");
+        console.warn("retrying...");
       }
     };
 
@@ -42,6 +41,6 @@ export function closeRelay() {
   if (eventSource) {
     eventSource.close();
     eventSource = null;
-    console.log("[Relay] EventSource connection closed.");
+    // console.log("[Relay] EventSource connection closed."); // DEBUG
   }
 }
