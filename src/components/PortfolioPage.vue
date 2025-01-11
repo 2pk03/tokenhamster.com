@@ -22,7 +22,7 @@
 
       <div>
         <!-- Other content of ProfilePage -->
-        <MonthChart :selectedToken="selectedToken" />
+        <MonthChart :selectedToken="selectedToken" @update:selectedToken="selectedToken = $event" />
       </div>
     </div>
 
@@ -131,35 +131,35 @@ export default {
       // ApexChart options and series
       portfolioChartOptions: {
         chart: {
-          type: "area", 
+          type: "area",
           zoom: { enabled: true },
           toolbar: { show: false },
         },
         stroke: {
-          curve: "straight", 
-          width: 2, 
-          colors: ["#ff8c00"], 
+          curve: "straight",
+          width: 2,
+          colors: ["#ff8c00"],
         },
         fill: {
-    type: 'gradient',
-    gradient: {
-        shadeIntensity: 1,
-        opacityFrom: 0.7,
-        opacityTo: 0.3,
-        colorStops: [
-            {
+          type: 'gradient',
+          gradient: {
+            shadeIntensity: 1,
+            opacityFrom: 0.7,
+            opacityTo: 0.3,
+            colorStops: [
+              {
                 offset: 0,
                 color: "#ff8c00",
                 opacity: 0.7,
-            },
-            {
+              },
+              {
                 offset: 100,
                 color: "#ffa500",
                 opacity: 0.3,
-            },
-        ],
-    },
-},
+              },
+            ],
+          },
+        },
         xaxis: {
           type: "datetime",
           title: { text: "Date" },

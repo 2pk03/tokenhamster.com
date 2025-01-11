@@ -14,7 +14,6 @@
                             {{ token }}
                         </option>
                     </select>
-
                     <!-- Checkboxes for Time Windows -->
                     <div class="time-window-controls"
                         style="display: inline-flex; align-items: center; margin-left: 40px;">
