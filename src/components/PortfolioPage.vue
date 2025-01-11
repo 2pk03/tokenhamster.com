@@ -15,62 +15,16 @@
 
         <!-- Portfolio Value Chart -->
         <div class="chart-container">
-          <apexchart type="line" :options="updatedChartOptions" :series="portfolioChartSeries" height="200"></apexchart>
+          <apexchart type="area" :options="updatedChartOptions" :series="portfolioChartSeries" height="200"></apexchart>
         </div>
       </div>
 
-      <!-- Last 30 Days Chart -->
-      <div class="graph-container">
-        <div class="graphs-box">
-          <h2>Last 30 Days</h2>
 
-          <!-- Dropdown for Selecting Tokens -->
-          <div class="chart-controls">
-            <label for="crypto-select-30days">Select a Token:</label>
-            <select id="crypto-select-30days" v-model="selectedToken" @change="fetchPriceData">
-              <option v-for="token in tokens" :key="token" :value="token">
-                {{ token }}
-              </option>
-            </select>
-
-            <!-- Checkboxes for Time Windows -->
-            <div class="time-window-controls" style="display: inline-flex; align-items: center; margin-left: 40px;">
-              <label style="margin-right: 10px;">
-                <input type="radio" value="24h" v-model="selectedTimeWindow" @change="fetchPriceData" />
-                24h
-              </label>
-              <label style="margin-right: 10px;">
-                <input type="radio" value="week" v-model="selectedTimeWindow" @change="fetchPriceData" />
-                1 Week
-              </label>
-              <label>
-                <input type="radio" value="month" v-model="selectedTimeWindow" @change="fetchPriceData" />
-                30 Days
-              </label>
-            </div>
-          </div>
-
-          <!-- ApexCharts Rendering -->
-          <div class="chart-render">
-            <apexchart :type="last30DaysChartOptions.chart.type" :height="last30DaysChartOptions.chart.height"
-              :options="last30DaysChartOptions" :series="last30DaysChartSeries" />
-          </div>
-          <!-- Chart Type Selection -->
-          <div class="chart-type-controls">
-            <label>
-              <input type="radio" value="price" v-model="selectedChartType" @change="fetchPriceData" />
-              Price
-            </label>
-            <label>
-              <input type="radio" value="candlestick" v-model="selectedChartType" @change="fetchPriceData" />
-              Candlestick
-            </label>
-          </div>
-        </div>
+      <div>
+        <!-- Other content of ProfilePage -->
+        <MonthChart :selectedToken="selectedToken" />
       </div>
-
     </div>
-
 
     <!-- Right Section: Portfolio Table -->
     <div class="portfolio-section">
@@ -142,6 +96,7 @@
 </template>
 
 <script>
+import MonthChart from "@/components/MonthChart.vue";
 import api from "@/api";
 import EventBus from "@/services/eventBus";
 import VueApexCharts from "vue3-apexcharts";
@@ -169,99 +124,75 @@ export default {
       currencyError: 'N/A',
       dailyDifference: 0,
       totalSum: 0,
-      last30DaysChartData: [],
       portfolioChartData: [],
       PortfolioChartSeries: [],
       selectedToken: "BTC",
-      selectedChartType: "price",
-      tokens: [],
-      selectedTimeWindow: "24h",
 
       // ApexChart options and series
       portfolioChartOptions: {
         chart: {
-          type: "line",
+          type: "area", 
           zoom: { enabled: true },
           toolbar: { show: false },
-          offsetX: 10,
-          offsetY: 10,
         },
         stroke: {
-          // curve: "smooth",
-          width: 2,
+          curve: "straight", 
+          width: 2, 
+          colors: ["#ff8c00"], 
         },
-        xaxis: {
-          type: "datetime",
-          title: {
-            text: "Date",
-            style: { fontSize: "12px", color: "#333" },
-          },
-          labels: {
-            rotate: -45,
-            style: { fontSize: "10px", color: "#333" },
-          },
-        },
-        yaxis: {
-          title: {
-            text: "Value (USD)",
-            style: { fontSize: "12px", color: "#333" },
-          },
-          labels: {
-            formatter: (value) => `$${value.toFixed(2)}`,
-            style: { fontSize: "10px", color: "#333" },
-          },
-        },
-        tooltip: {
-          x: { format: "dd MMM yyyy" },
-          y: { formatter: (value) => `$${value.toFixed(2)}` },
-        },
-      },
-
-      last30DaysChartSeries: [
-        {
-          name: "Price",
-          data: [], // Ensure an empty array is provided
-        },
-      ],
-      last30DaysChartOptions: {
-        chart: {
-          height: 400,
-          type: "line",
-          stacked: false, // Ensure no stacking by default
-          width: 2,
-        },
+        fill: {
+    type: 'gradient',
+    gradient: {
+        shadeIntensity: 1,
+        opacityFrom: 0.7,
+        opacityTo: 0.3,
+        colorStops: [
+            {
+                offset: 0,
+                color: "#ff8c00",
+                opacity: 0.7,
+            },
+            {
+                offset: 100,
+                color: "#ffa500",
+                opacity: 0.3,
+            },
+        ],
+    },
+},
         xaxis: {
           type: "datetime",
           title: { text: "Date" },
-          style: { fontSize: "12px", color: "#333" },
+          labels: {
+            style: {
+              fontSize: "12px",
+              color: "#333",
+            },
+          },
         },
-        yaxis: [
-          {
-            title: { text: "Price (USD)" },
-            labels: {
-              formatter: (value) => `$${value.toFixed(2)}`,
-              style: { fontSize: "10px", color: "#333" },
+        yaxis: {
+          title: { text: "Portfolio Value" },
+          labels: {
+            formatter: (value) => `$${value.toFixed(2)}`,
+            style: {
+              fontSize: "10px",
+              color: "#333",
             },
           },
-          {
-            opposite: true,
-            title: { text: "Volume" },
-            labels: {
-              formatter: (value) =>
-                value >= 1e6 ? `${(value / 1e6).toFixed(2)}M` : value.toFixed(0),
-            },
-          },
-        ],
+        },
+        dataLabels: {
+          enabled: false,
+        },
         tooltip: {
           shared: true,
           x: { format: "dd MMM yyyy" },
         },
-        colors: ["#1f77b4", "#aec7e8"], // Custom colors
       },
     };
   },
   components: {
     apexchart: VueApexCharts,
+    MonthChart,
   },
   computed: {
     formattedTotalValue() {
@@ -320,73 +251,11 @@ export default {
         },
       };
     },
-    dynamicChartOptions() {
-      return {
-        ...this.last30DaysChartOptions,
-        chart: {
-          ...this.last30DaysChartOptions.chart,
-          type:
-            this.selectedChartType === "candlestick"
-              ? "candlestick"
-              : "line", // Adjust chart type dynamically
-        },
-        yaxis: {
-          title: {
-            text:
-              this.selectedChartType === "volume"
-                ? "Volume"
-                : this.selectedChartType === "candlestick"
-                  ? "Price (Candlestick)"
-                  : "Price (USD)",
-          },
-        },
-      };
-    },
   },
   watch: {
     selectedCurrency(newCurrency) {
       // console.log(`Currency changed to: ${newCurrency}`); // DEBUG
       this.fetchCurrencyValue(newCurrency);
-    },
-    selectedToken: "fetchPriceData",
-    // selectedChartType: "fetchPriceData",
-
-    selectedChartType(newType) {
-      if (newType === "candlestick") {
-        // Update chart type to candlestick
-        this.last30DaysChartOptions.chart.type = "candlestick";
-
-        // Update Y-axis for candlestick
-        this.last30DaysChartOptions.yaxis = [
-          {
-            title: { text: "Price (USD)" }, // Only one Y-axis for candlestick
-          },
-        ];
-      } else {
-        // Update chart type to line for other chart types
-        this.last30DaysChartOptions.chart.type = "line";
-
-        // Update Y-axis for line chart
-        this.last30DaysChartOptions.yaxis = [
-          {
-            title: { text: "Price (USD)" },
-            labels: {
-              formatter: (value) => `$${value.toFixed(2)}`,
-            },
-          },
-          {
-            opposite: true,
-            title: { text: "Volume" },
-            labels: {
-              formatter: (value) =>
-                value >= 1e6 ? `${(value / 1e6).toFixed(2)}M` : value.toFixed(0),
-            },
-          },
-        ];
-      }
-
-      console.log("Updated Chart Options:", JSON.stringify(this.last30DaysChartOptions, null, 2));
-      console.log("Updated Series:", this.last30DaysChartSeries);
     },
   },
 
@@ -758,99 +627,6 @@ export default {
       }
     },
 
-    /**
-     * Fetch data for the selected tokens for 30day chart
-     */
-
-    // 1. get all available tokens
-    async fetchTokens() {
-      try {
-        console.log('Fetching tokens...');
-        const response = await api.get('/functional/historical/tokens');
-        console.log('Fetched tokens:', response.data); // Access data directly
-        this.tokens = response.data.data; // Adjust based on the structure
-      } catch (err) {
-        console.error('Error fetching tokens:', err);
-      }
-    },
-
-    // get the data
-    async fetchPriceData() {
-      if (!this.selectedToken || !this.selectedTimeWindow) return;
-
-      try {
-        console.log(`Fetching ${this.selectedTimeWindow} data for:`, this.selectedToken);
-
-        const response = await api.get(
-          `/functional/historical/${this.selectedToken}/${this.selectedTimeWindow}`,
-          {
-            params: { fields: "date_time,price_usd,volume_to" },
-          }
-        );
-
-        console.log(`API Response for ${this.selectedTimeWindow}:`, response.data);
-
-        if (!response.data || !Array.isArray(response.data.data)) {
-          throw new Error(`Invalid API response for ${this.selectedTimeWindow}.`);
-        }
-
-        this.updatePriceChart(response.data.data);
-      } catch (err) {
-        console.error(`Error fetching ${this.selectedTimeWindow} data:`, err);
-      }
-    },
-
-    /**
-     * Update the chart series for price data
-     */
-    updatePriceChart(data) {
-      const priceData = data.map(item => ({
-        x: new Date(item.date_time).getTime(),
-        y: item.price_usd || 0,
-      }));
-
-      const volumeData = data.map(item => ({
-        x: new Date(item.date_time).getTime(),
-        y: item.volume_to || 0, // Use volume_to for consistency
-      }));
-
-      this.last30DaysChartSeries = [
-        {
-          name: "Price (USD)",
-          type: "line",
-          data: priceData,
-        },
-        {
-          name: "Volume",
-          type: "column",
-          data: volumeData,
-        },
-      ];
-    },
-
-    /**
-     * Update the chart series for candlestick data
-    
-    updateCandlestickChart(data) {
-      // Filter out invalid data
-      const transformedData = data
-        .filter((d) => d.open !== null && d.high !== null && d.low !== null && d.price_usd !== null)
-        .map((d) => ({
-          x: new Date(d.date_time).getTime(), // Convert date_time to timestamp
-          y: [d.open, d.high, d.low, d.price_usd], // ApexCharts expects [open, high, low, close]
-        }));
-
-      // Update the series
-      this.last30DaysChartSeries = [
-        {
-          name: "Candlestick",
-          data: transformedData,
-        },
-      ];
-
-      console.log("Transformed Candlestick Data:", this.last30DaysChartSeries);
-    },  */
-
     /* timezone stuff */
     formatDateTime(timestamp) {
       const date = new Date(timestamp);
@@ -895,14 +671,6 @@ export default {
     EventBus.on("dataUpdated", this.fetchPortfolioChartData);
     this.initPortfolioData();
     this.fetchDailyWinLoss();
-    this.initPortfolioData();
-    this.fetchTokens();
-    this.fetchPriceData();
-
-    // DEBUG
-    console.log("Candlestick Chart Series:", this.last30DaysChartSeries);
-    console.log("Candlestick Chart Options:", this.last30DaysChartOptions);
-    // DEBUG EBD
 
     // Set up the selected currency and fetch the initial total value
     this.fetchPreferredCurrency()
