@@ -27,11 +27,27 @@
           <!-- Dropdown for Selecting Tokens -->
           <div class="chart-controls">
             <label for="crypto-select-30days">Select a Token:</label>
-            <select id="crypto-select-30days" v-model="selectedToken" @change="fetchHistoricalData">
+            <select id="crypto-select-30days" v-model="selectedToken" @change="fetchPriceData">
               <option v-for="token in tokens" :key="token" :value="token">
                 {{ token }}
               </option>
             </select>
+
+            <!-- Checkboxes for Time Windows -->
+            <div class="time-window-controls" style="display: inline-flex; align-items: center; margin-left: 40px;">
+              <label style="margin-right: 10px;">
+                <input type="radio" value="24h" v-model="selectedTimeWindow" @change="fetchPriceData" />
+                24h
+              </label>
+              <label style="margin-right: 10px;">
+                <input type="radio" value="week" v-model="selectedTimeWindow" @change="fetchPriceData" />
+                1 Week
+              </label>
+              <label>
+                <input type="radio" value="month" v-model="selectedTimeWindow" @change="fetchPriceData" />
+                30 Days
+              </label>
+            </div>
           </div>
 
           <!-- ApexCharts Rendering -->
@@ -42,11 +58,11 @@
           <!-- Chart Type Selection -->
           <div class="chart-type-controls">
             <label>
-              <input type="radio" value="price" v-model="selectedChartType" @change="fetchHistoricalData" />
+              <input type="radio" value="price" v-model="selectedChartType" @change="fetchPriceData" />
               Price
             </label>
             <label>
-              <input type="radio" value="candlestick" v-model="selectedChartType" @change="fetchHistoricalData" />
+              <input type="radio" value="candlestick" v-model="selectedChartType" @change="fetchPriceData" />
               Candlestick
             </label>
           </div>
@@ -156,9 +172,10 @@ export default {
       last30DaysChartData: [],
       portfolioChartData: [],
       PortfolioChartSeries: [],
-      selectedToken: ["BTC"],
+      selectedToken: "BTC",
       selectedChartType: "price",
       tokens: [],
+      selectedTimeWindow: "24h",
 
       // ApexChart options and series
       portfolioChartOptions: {
@@ -170,8 +187,8 @@ export default {
           offsetY: 10,
         },
         stroke: {
-          curve: "smooth",
-          width: 3,
+          // curve: "smooth",
+          width: 2,
         },
         xaxis: {
           type: "datetime",
@@ -199,6 +216,7 @@ export default {
           y: { formatter: (value) => `$${value.toFixed(2)}` },
         },
       },
+
       last30DaysChartSeries: [
         {
           name: "Price",
@@ -210,16 +228,19 @@ export default {
           height: 400,
           type: "line",
           stacked: false, // Ensure no stacking by default
+          width: 2,
         },
         xaxis: {
           type: "datetime",
           title: { text: "Date" },
+          style: { fontSize: "12px", color: "#333" },
         },
         yaxis: [
           {
             title: { text: "Price (USD)" },
             labels: {
               formatter: (value) => `$${value.toFixed(2)}`,
+              style: { fontSize: "10px", color: "#333" },
             },
           },
           {
@@ -327,8 +348,8 @@ export default {
       // console.log(`Currency changed to: ${newCurrency}`); // DEBUG
       this.fetchCurrencyValue(newCurrency);
     },
-    selectedToken: "fetchHistoricalData",
-    // selectedChartType: "fetchHistoricalData",
+    selectedToken: "fetchPriceData",
+    // selectedChartType: "fetchPriceData",
 
     selectedChartType(newType) {
       if (newType === "candlestick") {
@@ -754,28 +775,28 @@ export default {
     },
 
     // get the data
-    async fetchHistoricalData() {
-      if (!this.selectedToken) return;
+    async fetchPriceData() {
+      if (!this.selectedToken || !this.selectedTimeWindow) return;
 
       try {
-        console.log("Fetching historical data for:", this.selectedToken);
+        console.log(`Fetching ${this.selectedTimeWindow} data for:`, this.selectedToken);
 
-        const response = await api.get(`/functional/historical/${this.selectedToken}`, {
-          params: {
-            fields: this.selectedChartType === "candlestick"
-              ? "date_time,open,high,low,price_usd"
-              : "date_time,price_usd,volume_to",
-          },
-        });
+        const response = await api.get(
+          `/functional/historical/${this.selectedToken}/${this.selectedTimeWindow}`,
+          {
+            params: { fields: "date_time,price_usd,volume_to" },
+          }
+        );
 
-        if (this.selectedChartType === "candlestick") {
-          this.updateCandlestickChart(response.data.data);
-          console.log("API Response for Candlestick:", response.data.data); // DEBUG
-        } else if (this.selectedChartType === "price") {
-          this.updatePriceChart(response.data.data);
+        console.log(`API Response for ${this.selectedTimeWindow}:`, response.data);
+
+        if (!response.data || !Array.isArray(response.data.data)) {
+          throw new Error(`Invalid API response for ${this.selectedTimeWindow}.`);
         }
+
+        this.updatePriceChart(response.data.data);
       } catch (err) {
-        console.error("Error fetching historical data:", err);
+        console.error(`Error fetching ${this.selectedTimeWindow} data:`, err);
       }
     },
 
@@ -783,14 +804,14 @@ export default {
      * Update the chart series for price data
      */
     updatePriceChart(data) {
-      const priceData = data.map((item) => ({
+      const priceData = data.map(item => ({
         x: new Date(item.date_time).getTime(),
         y: item.price_usd || 0,
       }));
 
-      const volumeData = data.map((item) => ({
+      const volumeData = data.map(item => ({
         x: new Date(item.date_time).getTime(),
-        y: item.volume_to || 0,
+        y: item.volume_to || 0, // Use volume_to for consistency
       }));
 
       this.last30DaysChartSeries = [
@@ -809,7 +830,7 @@ export default {
 
     /**
      * Update the chart series for candlestick data
-     */
+    
     updateCandlestickChart(data) {
       // Filter out invalid data
       const transformedData = data
@@ -828,8 +849,8 @@ export default {
       ];
 
       console.log("Transformed Candlestick Data:", this.last30DaysChartSeries);
-    },
-    
+    },  */
+
     /* timezone stuff */
     formatDateTime(timestamp) {
       const date = new Date(timestamp);
@@ -876,6 +897,7 @@ export default {
     this.fetchDailyWinLoss();
     this.initPortfolioData();
     this.fetchTokens();
+    this.fetchPriceData();
 
     // DEBUG
     console.log("Candlestick Chart Series:", this.last30DaysChartSeries);
