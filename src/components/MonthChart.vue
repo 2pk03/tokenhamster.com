@@ -303,7 +303,14 @@ export default {
                             formatter: (value) => this.formatDateTime(value), // Use the prop for formatting
                         },
                         y: {
-                            formatter: (value) => this.formatNumberMonthly(value),
+                            formatter: (value, { seriesIndex }) => {
+                                if (seriesIndex === 1) {
+                                    // Format Volume
+                                    return `${this.formatVolume(value)} Vol`;
+                                }
+                                // Format Price
+                                return `$${this.formatNumberMonthly(value)}`;
+                            },
                         },
                     },
                     yaxis: [
@@ -323,10 +330,7 @@ export default {
                             opposite: true,
                             title: { text: "Volume" },
                             labels: {
-                                formatter: (value) =>
-                                    value >= 1e6
-                                        ? `${(value / 1e6).toFixed(2)}M`
-                                        : this.formatNumberMonthly(value),
+                                formatter: (value) => this.formatVolume(value),
                             },
                         },
                     ],
@@ -341,6 +345,17 @@ export default {
             } catch (err) {
                 console.error("Error updating chart:", err.message);
             }
+        },
+
+        formatVolume(value) {
+            if (value >= 1e9) {
+                return `${(value / 1e9).toFixed(2)}B`; // Format as billions
+            } else if (value >= 1e6) {
+                return `${(value / 1e6).toFixed(2)}M`; // Format as millions
+            } else if (value >= 1e3) {
+                return `${(value / 1e3).toFixed(1)}K`; // Format as thousands
+            }
+            return value.toLocaleString(); // Add thousand separators
         },
 
         updateCandlestickChart(data) {

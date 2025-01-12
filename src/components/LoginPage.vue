@@ -5,7 +5,7 @@
       <div class="center-text">
         <h1 class="main-title">The TokenHamster</h1>
         <p class="subtitle">Track your crypto offline securely and easily</p>
-        <strong>beta v. 0.83 / build 3b220aa</strong>
+        <strong>beta v. 0.87 / build 109d6e5</strong>
       </div>
 
       <!-- Google Login Button -->
