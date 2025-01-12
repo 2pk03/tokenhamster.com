@@ -133,28 +133,24 @@ router.get('/:crypto_symbol/cs', async (req, res) => {
   const { crypto_symbol } = req.params;
   const { time = '15', start_date, end_date } = req.query;
 
-  const intervalFormats = {
-    '15': '%Y-%m-%d %H:%M', // 15-minute intervals
-    '30': '%Y-%m-%d %H:%M', // 30-minute intervals
-    '60': '%Y-%m-%d %H:00', // Hourly intervals
-    '4h': '%Y-%m-%d %H:00', // 4-hour intervals (manual rounding below)
-    'day': '%Y-%m-%d',      // Daily intervals
+  const intervalMapping = {
+    '15': 900,  // 15-minute intervals
+    '30': 1800, // 30-minute intervals
+    '60': 3600, // Hourly intervals
+    '4h': 14400, // 4-hour intervals
+    'day': 86400, // Daily intervals
   };
 
-  const intervalFormat = intervalFormats[time];
-  if (!intervalFormat) {
-    return res.status(400).json({ error: 'Invalid time interval provided' });
+  const intervalSeconds = intervalMapping[time];
+  if (!intervalSeconds) {
+    return res.status(400).json({ error: 'Invalid time interval provided.' });
   }
-
-  const intervalGroupBy = time === '4h'
-    ? `strftime('%Y-%m-%d %H:00', datetime((strftime('%s', date_time) / 14400) * 14400, 'unixepoch'))` // 4-hour grouping
-    : `strftime('${intervalFormat}', date_time)`; // Default grouping for other intervals
 
   const query = `
     WITH aggregated_data AS (
         SELECT
             crypto_symbol,
-            ${intervalGroupBy} AS period,
+            strftime('%Y-%m-%d %H:%M', datetime((strftime('%s', date_time) / ?) * ?, 'unixepoch')) AS period,
             MIN(date_time) AS min_date_time,
             MAX(date_time) AS max_date_time,
             MAX(price_usd) AS high,
@@ -162,8 +158,7 @@ router.get('/:crypto_symbol/cs', async (req, res) => {
             SUM(volume_to) AS total_volume
         FROM historical_data
         WHERE crypto_symbol = ?
-          AND date_time >= ?
-          AND date_time <= ?
+          AND date_time BETWEEN ? AND ?
         GROUP BY period
     ),
     open_close_data AS (
@@ -186,16 +181,20 @@ router.get('/:crypto_symbol/cs', async (req, res) => {
     JOIN open_close_data o
     ON a.crypto_symbol = o.crypto_symbol AND a.period = o.period
     ORDER BY a.period;
-`;
+  `;
 
-  db.all(query, [crypto_symbol, start_date, end_date], (err, rows) => {
-    if (err) {
-      console.error(`Error fetching candlestick data for ${crypto_symbol}:`, err.message);
-      return res.status(500).json({ error: 'Internal server error' });
+  db.all(
+    query,
+    [intervalSeconds, intervalSeconds, crypto_symbol, start_date, end_date],
+    (err, rows) => {
+      if (err) {
+        console.error(`Error fetching candlestick data for ${crypto_symbol}:`, err.message);
+        return res.status(500).json({ error: 'Internal server error' });
+      }
+
+      res.json(rows);
     }
-
-    res.json(rows);
-  });
+  );
 });
 
 module.exports = router;
