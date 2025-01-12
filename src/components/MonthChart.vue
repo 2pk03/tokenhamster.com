@@ -137,11 +137,11 @@ export default {
     },
     watch: {
         selectedToken: {
-            immediate: true, 
+            immediate: true,
             handler(newToken) {
                 if (newToken) {
                     // console.log(`Token changed to: ${newToken}`);
-                    this.fetchChartData(); 
+                    this.fetchChartData();
                 }
             },
         },
@@ -150,10 +150,10 @@ export default {
             handler(newType) {
                 if (newType === "candlestick") {
                     // console.log("Switching to Candlestick Chart");
-                    this.fetchCSData(); 
+                    this.fetchCSData();
                 } else if (newType === "price") {
                     // console.log("Switching to Price Chart");
-                    this.fetchPriceData(); 
+                    this.fetchPriceData();
                 }
             },
         },
@@ -176,7 +176,7 @@ export default {
                 series: [],
                 chart: {
                     ...this.chartOptions.chart,
-                    animations: { enabled: false }, 
+                    animations: { enabled: false },
                 },
             };
         },
@@ -344,12 +344,22 @@ export default {
         },
 
         updateCandlestickChart(data) {
-            const transformedData = data.map((d) => ({
-                x: new Date(d.period).getTime(),
-                y: [d.open, d.high, d.low, d.close], // ApexCharts candlestick format
-            }));
+            console.log("API Response for Candlestick Chart:", data); // Log API data
+
+            const transformedData = data
+                .filter((d) => d.open && d.high && d.low && d.close) // Filter invalid data
+                .map((d) => ({
+                    x: new Date(d.period).getTime(),
+                    y: [d.open, d.high, d.low, d.close],
+                }));
+
+            console.log("Transformed Candlestick Data:", transformedData); // Log transformed data
 
             try {
+                if (!transformedData.length) {
+                    throw new Error("No valid data for candlestick chart.");
+                }
+
                 this.chartSeries = [
                     {
                         name: "Candlestick",
@@ -385,14 +395,15 @@ export default {
                     ],
                 };
 
-                // Trigger a reflow to ensure the chart is re-rendered correctly
+                // Trigger a reflow
                 this.$nextTick(() => {
                     if (this.$refs.apexChart) {
+                        this.$refs.apexChart.updateSeries(this.chartSeries);
                         this.$refs.apexChart.reflow();
                     }
                 });
             } catch (err) {
-                console.error("Error updating chart:", err.message);
+                console.error("Error updating candlestick chart:", err.message);
             }
         },
 
