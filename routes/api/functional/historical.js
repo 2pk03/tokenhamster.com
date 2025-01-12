@@ -134,20 +134,31 @@ router.get('/:crypto_symbol/cs', async (req, res) => {
   const { time = '15', start_date, end_date } = req.query;
 
   const intervalFormat = {
-    '15': '%Y-%m-%d %H:%M',
-    '30': '%Y-%m-%d %H:%M',
-    '60': '%Y-%m-%d %H:00',
-  }[time] || '%Y-%m-%d %H:%M';
+    '15': '%Y-%m-%d %H:%M', // 15-minute intervals
+    '30': '%Y-%m-%d %H:%M', // 30-minute intervals
+    '60': '%Y-%m-%d %H:00', // Hourly intervals
+    '4h': '%Y-%m-%d %H:00', // 4-hour intervals
+    'day': '%Y-%m-%d',      // Daily intervals
+  }[time];
+
+  if (!intervalFormat) {
+    return res.status(400).json({ error: 'Invalid time interval provided.' });
+  }
+
+  const intervalGroupBy = {
+    '4h': `strftime('%Y-%m-%d %H:00', datetime((strftime('%s', date_time) / 14400) * 14400, 'unixepoch'))`, // 4-hour grouping
+    'day': `strftime('%Y-%m-%d', date_time)`, // Daily grouping
+  }[time] || `strftime('${intervalFormat}', date_time)`; // Default grouping
 
   const query = `
         SELECT 
             crypto_symbol,
-            strftime('${intervalFormat}', date_time) AS period,
-            FIRST_VALUE(price_usd) OVER (PARTITION BY strftime('${intervalFormat}', date_time) ORDER BY date_time) AS open,
-            MAX(price_usd) AS high,
-            MIN(price_usd) AS low,
-            LAST_VALUE(price_usd) OVER (PARTITION BY strftime('${intervalFormat}', date_time) ORDER BY date_time) AS close,
-            SUM(volume_to) AS total_volume
+            ${intervalGroupBy} AS period,
+            COALESCE(FIRST_VALUE(price_usd) OVER (PARTITION BY ${intervalGroupBy} ORDER BY date_time), 0) AS open,
+            COALESCE(MAX(price_usd), 0) AS high,
+            COALESCE(MIN(price_usd), 0) AS low,
+            COALESCE(LAST_VALUE(price_usd) OVER (PARTITION BY ${intervalGroupBy} ORDER BY date_time), 0) AS close,
+            COALESCE(SUM(volume_to), 0) AS total_volume
         FROM historical_data
         WHERE crypto_symbol = ?
           AND date_time >= ?
@@ -165,6 +176,5 @@ router.get('/:crypto_symbol/cs', async (req, res) => {
     res.json(rows);
   });
 });
-
 
 module.exports = router;

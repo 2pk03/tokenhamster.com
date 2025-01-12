@@ -1,6 +1,5 @@
 <template>
     <div class="portfolio-container">
-        <!-- Last 30 Days Chart -->
         <div class="graph-container">
             <div class="graphs-box">
                 <h2>Last 30 Days</h2>
@@ -9,49 +8,52 @@
                 <div class="chart-controls">
                     <label for="crypto-select-30days">Select a Token:</label>
                     <select id="crypto-select-30days" :value="selectedToken"
-                        @input="$emit('update:selectedToken', $event.target.value)" @change="fetchPriceData">
+                        @input="$emit('update:selectedToken', $event.target.value)" @change="fetchChartData">
                         <option v-for="token in tokens" :key="token" :value="token">
                             {{ token }}
                         </option>
                     </select>
+
+                    <!-- Time Window Controls -->
                     <!-- Checkboxes for Time Windows -->
                     <div class="time-window-controls"
                         style="display: inline-flex; align-items: center; margin-left: 40px;">
                         <label style="margin-right: 10px;">
-                            <input type="radio" value="24h" v-model="selectedTimeWindow" @change="fetchPriceData" />
+                            <input type="radio" value="24h" v-model="selectedTimeWindow" @change="fetchChartData" />
                             24h
                         </label>
                         <label style="margin-right: 10px;">
-                            <input type="radio" value="week" v-model="selectedTimeWindow" @change="fetchPriceData" />
-                            1 Week
+                            <input type="radio" value="week" v-model="selectedTimeWindow" @change="fetchChartData" />
+                            Week
                         </label>
                         <label>
-                            <input type="radio" value="month" v-model="selectedTimeWindow" @change="fetchPriceData" />
-                            30 Days
+                            <input type="radio" value="month" v-model="selectedTimeWindow" @change="fetchChartData" />
+                            Month
                         </label>
                     </div>
                 </div>
 
-                <!-- ApexCharts Rendering -->
-                <div class="chart-render">
-                    <apexchart :type="last30DaysChartOptions.chart.type" :height="last30DaysChartOptions.chart.height"
-                        :options="last30DaysChartOptions" :series="last30DaysChartSeries" />
+
+                <!-- Chart Rendering -->
+                <div class="chart-render" v-if="chartSeries && chartSeries.length && chartOptions">
+                    <apexchart :type="chartOptions.chart.type" :options="chartOptions" :series="chartSeries"
+                        :formatDateTime="formatDateTime" />
                 </div>
-                <!-- Chart Type Selection -->
+
+                <!-- Chart Type Controls -->
                 <div class="chart-type-controls">
                     <label>
-                        <input type="radio" value="price" v-model="selectedChartType" @change="fetchPriceData" />
-                        Price
+                        <input type="radio" value="price" v-model="selectedChartType" @change="fetchChartData" />
+                        Price / Volume
                     </label>
                     <label>
-                        <input type="radio" value="candlestick" v-model="selectedChartType" @change="fetchPriceData" />
+                        <input type="radio" value="candlestick" v-model="selectedChartType" @change="fetchChartData" />
                         Candlestick
                     </label>
                 </div>
             </div>
         </div>
     </div>
-
 </template>
 
 <script>
@@ -67,61 +69,32 @@ export default {
             selectedChartType: "price",
             tokens: [],
             selectedTimeWindow: "24h",
-
-            // ApexChart options and series
-            last30DaysChartSeries: [
-                {
-                    name: "Price",
-                    data: [], // Ensure an empty array is provided
-                },
-            ],
-            last30DaysChartOptions: {
+            chartSeries: [],
+            chartOptions: {
                 chart: {
                     height: 400,
                     type: "line",
-                    stacked: false, // Ensure no stacking by default
-                    width: 2,
-                },
-                stroke: {
-                    curve: "straight",
-                    width: 2,
-                    colors: ["#00008b"],
-                },
-                plotOptions: {
-                    bar: {
-                        horizontal: false, // 
-                        columnWidth: '100%', // bar width
-                        borderRadius: 5, // Rounded 
-                        borderRadiusApplication: 'end',
-                    },
+                    stacked: false,
+                    animations: { enabled: false },
                 },
                 xaxis: {
                     type: "datetime",
                     title: { text: "Date" },
-                    style: { fontSize: "12px", color: "#333" },
                 },
                 yaxis: [
                     {
                         title: { text: "Price (USD)" },
-                        labels: {
-                            formatter: (value) => `$${value.toFixed(2)}`,
-                            style: { fontSize: "10px", color: "#333" },
-                        },
                     },
                     {
                         opposite: true,
                         title: { text: "Volume" },
-                        labels: {
-                            formatter: (value) =>
-                                value >= 1e6 ? `${(value / 1e6).toFixed(2)}M` : value.toFixed(0),
-                        },
                     },
                 ],
                 tooltip: {
                     shared: true,
                     x: { format: "dd MMM yyyy" },
                 },
-                colors: ["#1f77b4", "#aec7e8"], // Custom colors
+                colors: ["#1f77b4", "#aec7e8"],
             },
         };
     },
@@ -133,17 +106,21 @@ export default {
             type: String,
             required: true,
         },
+        formatDateTime: {
+            type: Function,
+            required: true,
+        },
     },
     computed: {
         dynamicChartOptions() {
             return {
-                ...this.last30DaysChartOptions,
+                ...this.chartOptions,
                 chart: {
-                    ...this.last30DaysChartOptions.chart,
+                    ...this.chartOptions.chart,
                     type:
                         this.selectedChartType === "candlestick"
                             ? "candlestick"
-                            : "line", // Adjust chart type dynamically
+                            : "line",
                 },
                 yaxis: {
                     title: {
@@ -159,61 +136,60 @@ export default {
         },
     },
     watch: {
-        selectedToken: "fetchPriceData",
-        // selectedChartType: "fetchPriceData",
-
-        selectedChartType(newType) {
-            if (newType === "candlestick") {
-                // Update chart type to candlestick
-                this.last30DaysChartOptions.chart.type = "candlestick";
-
-                // Update Y-axis for candlestick
-                this.last30DaysChartOptions.yaxis = [
-                    {
-                        title: { text: "Price (USD)" }, // Only one Y-axis for candlestick
-                    },
-                ];
-            } else {
-                // Update chart type to line for other chart types
-                this.last30DaysChartOptions.chart.type = "line";
-
-                // Update Y-axis for line chart
-                this.last30DaysChartOptions.yaxis = [
-                    {
-                        title: { text: "Price (USD)" },
-                        labels: {
-                            formatter: (value) => `$${value.toFixed(2)}`,
-                        },
-                    },
-                    {
-                        opposite: true,
-                        title: { text: "Volume" },
-                        labels: {
-                            formatter: (value) =>
-                                value >= 1e6 ? `${(value / 1e6).toFixed(2)}M` : value.toFixed(0),
-                        },
-                    },
-                ];
-            }
+        selectedToken: {
+            immediate: true, 
+            handler(newToken) {
+                if (newToken) {
+                    // console.log(`Token changed to: ${newToken}`);
+                    this.fetchChartData(); 
+                }
+            },
+        },
+        selectedChartType: {
+            immediate: true,
+            handler(newType) {
+                if (newType === "candlestick") {
+                    // console.log("Switching to Candlestick Chart");
+                    this.fetchCSData(); 
+                } else if (newType === "price") {
+                    // console.log("Switching to Price Chart");
+                    this.fetchPriceData(); 
+                }
+            },
         },
     },
 
     methods: {
-        /**
-         * Fetch data for the selected tokens for 30day chart
-         */
-
-        // 1. get all available tokens
         async fetchTokens() {
             try {
                 const response = await api.get('/functional/historical/tokens');
-                this.tokens = response.data.data; // Adjust based on the structure
+                this.tokens = response.data.data;
             } catch (err) {
                 console.error('Error fetching tokens:', err);
             }
         },
 
-        // get the data
+        resetChartState() {
+            this.chartSeries = [];
+            this.chartOptions = {
+                ...this.chartOptions,
+                series: [],
+                chart: {
+                    ...this.chartOptions.chart,
+                    animations: { enabled: false }, 
+                },
+            };
+        },
+
+
+        fetchChartData() {
+            if (this.selectedChartType === "candlestick") {
+                this.fetchCSData();
+            } else {
+                this.fetchPriceData();
+            }
+        },
+
         async fetchPriceData() {
             if (!this.selectedToken || !this.selectedTimeWindow) return;
 
@@ -234,81 +210,222 @@ export default {
             }
         },
 
-        /**
-         * Update the chart series for price data
-         */
+        async fetchCSData() {
+            if (!this.selectedToken || !this.selectedTimeWindow) {
+                console.warn("Token or Time Window not selected for candlestick data.");
+                return;
+            }
+
+            const intervalMapping = {
+                "24h": "15",
+                "week": "4h",
+                "month": "day"
+            };
+
+            const interval = intervalMapping[this.selectedTimeWindow];
+            if (!interval) {
+                console.error(`Invalid time window: ${this.selectedTimeWindow}`);
+                return;
+            }
+
+            try {
+                // console.log(`Fetching candlestick data for: ${this.selectedToken}, Interval: ${interval}`);
+
+                const response = await api.get(
+                    `/functional/historical/${this.selectedToken}/cs`,
+                    {
+                        params: {
+                            time: interval,
+                            start_date: this.getStartDate(this.selectedTimeWindow),
+                            end_date: new Date().toISOString()
+                        }
+                    }
+                );
+
+                if (!response.data || !Array.isArray(response.data)) {
+                    throw new Error("Invalid response from candlestick API.");
+                }
+
+                this.updateCandlestickChart(response.data);
+            } catch (err) {
+                console.error(`Error fetching candlestick data: ${err.message}`);
+            }
+        },
+
         updatePriceChart(data) {
             const priceData = data.map((item) => ({
                 x: new Date(item.date_time).getTime(),
-                y: item.price_usd || 0, // Ensure fallback to 0 if price is missing
+                y: item.price_usd || 0,
             }));
 
             const volumeData = data.map((item) => ({
                 x: new Date(item.date_time).getTime(),
-                y: item.volume_to || 0, // Ensure fallback to 0 if volume is missing
+                y: item.volume_to || 0,
             }));
 
-            this.last30DaysChartSeries = [
-                {
-                    name: "Price (USD)",
-                    type: "line",
-                    data: priceData,
-                },
-                {
-                    name: "Volume",
-                    type: "bar",
-                    data: volumeData,
-                },
-            ];
+            try {
+                this.chartSeries = [
+                    {
+                        name: "Price (USD)",
+                        type: "line",
+                        data: priceData,
+                    },
+                    {
+                        name: "Volume",
+                        type: "bar",
+                        data: volumeData,
+                    },
+                ];
+
+                this.chartOptions = {
+                    ...this.chartOptions,
+                    chart: {
+                        ...this.chartOptions.chart,
+                        type: "line",
+                        height: 400,
+                        width: "100%",
+                        animations: { enabled: false },
+                    },
+                    colors: ["#00008b", "#ff8c00"], // Blue for Price, Orange for Volume
+                    stroke: {
+                        curve: "straight",
+                        width: 2,
+                    },
+                    plotOptions: {
+                        bar: {
+                            horizontal: false,
+                            columnWidth: "55%",
+                        },
+                    },
+                    tooltip: {
+                        shared: true,
+                        x: {
+                            formatter: (value) => this.formatDateTime(value), // Use the prop for formatting
+                        },
+                        y: {
+                            formatter: (value) => this.formatNumberMonthly(value),
+                        },
+                    },
+                    yaxis: [
+                        {
+                            title: { text: "Price (USD)" },
+                            labels: {
+                                formatter: (value) => this.formatNumberMonthly(value),
+                            },
+                            min: Math.max(
+                                Math.min(...priceData.map((p) => p.y)) * 0.9,
+                                0
+                            ),
+                            max: Math.max(...priceData.map((p) => p.y)) * 1.1,
+                            forceNiceScale: true, // Ensure consistent scaling
+                        },
+                        {
+                            opposite: true,
+                            title: { text: "Volume" },
+                            labels: {
+                                formatter: (value) =>
+                                    value >= 1e6
+                                        ? `${(value / 1e6).toFixed(2)}M`
+                                        : this.formatNumberMonthly(value),
+                            },
+                        },
+                    ],
+                };
+
+                // Ensure the chart is properly re-rendered
+                this.$nextTick(() => {
+                    if (this.$refs.apexChart) {
+                        this.$refs.apexChart.reflow();
+                    }
+                });
+            } catch (err) {
+                console.error("Error updating chart:", err.message);
+            }
         },
 
-        /**
-         * Update the chart series for candlestick data
-        
         updateCandlestickChart(data) {
-          // Filter out invalid data
-          const transformedData = data
-            .filter((d) => d.open !== null && d.high !== null && d.low !== null && d.price_usd !== null)
-            .map((d) => ({
-              x: new Date(d.date_time).getTime(), // Convert date_time to timestamp
-              y: [d.open, d.high, d.low, d.price_usd], // ApexCharts expects [open, high, low, close]
+            const transformedData = data.map((d) => ({
+                x: new Date(d.period).getTime(),
+                y: [d.open, d.high, d.low, d.close], // ApexCharts candlestick format
             }));
-    
-          // Update the series
-          this.last30DaysChartSeries = [
-            {
-              name: "Candlestick",
-              data: transformedData,
-            },
-          ];
-    
-          console.log("Transformed Candlestick Data:", this.last30DaysChartSeries);
-        },  */
 
-        /* timezone stuff */
-        formatDateTime(timestamp) {
-            const date = new Date(timestamp);
+            try {
+                this.chartSeries = [
+                    {
+                        name: "Candlestick",
+                        type: "candlestick",
+                        data: transformedData,
+                    },
+                ];
 
-            // Check if the selected currency is USD or EUR
-            if (this.selectedCurrency === "USD") {
-                // 12-hour format with timezone
-                return date.toLocaleString("en-US", {
-                    dateStyle: "medium",
-                    timeStyle: "short",
-                    timeZone: "America/New_York", // Adjust to US timezone
+                this.chartOptions = {
+                    ...this.chartOptions,
+                    chart: {
+                        ...this.chartOptions.chart,
+                        type: "candlestick",
+                        height: 400,
+                        animations: { enabled: false },
+                    },
+                    tooltip: {
+                        shared: true,
+                        x: {
+                            formatter: (value) => this.formatDateTime(value),
+                        },
+                        y: {
+                            formatter: (value) => this.formatNumberMonthly(value),
+                        },
+                    },
+                    yaxis: [
+                        {
+                            title: { text: "Price (USD)" },
+                            labels: {
+                                formatter: (value) => this.formatNumberMonthly(value),
+                            },
+                        },
+                    ],
+                };
+
+                // Trigger a reflow to ensure the chart is re-rendered correctly
+                this.$nextTick(() => {
+                    if (this.$refs.apexChart) {
+                        this.$refs.apexChart.reflow();
+                    }
                 });
-            } else {
-                // 24-hour format with timezone
-                return date.toLocaleString("de-DE", {
-                    dateStyle: "medium",
-                    timeStyle: "short",
-                    hour12: false, // 24-hour format
-                    timeZone: "Europe/Berlin", // Adjust to EU timezone
-                });
+            } catch (err) {
+                console.error("Error updating chart:", err.message);
+            }
+        },
+
+        formatNumberMonthly(value) {
+            if (!value || isNaN(value)) return "0.00";
+
+            if (value >= 1) {
+                return value.toFixed(2);
+            } else if (value > 0 && value < 1) {
+                if (value < 0.0001) {
+                    return parseFloat(value.toFixed(7)).toString();
+                }
+                return parseFloat(value.toFixed(3)).toString();
+            }
+            return value.toString();
+        },
+
+
+        getStartDate(timeWindow) {
+            const now = new Date();
+            switch (timeWindow) {
+                case "24h":
+                    return new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
+                case "week":
+                    return new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
+                case "month":
+                    return new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
+                default:
+                    return now.toISOString();
             }
         },
     },
-    /* method block end */
+    // methods block end
 
     created() {
         const token = localStorage.getItem("token");
@@ -316,26 +433,33 @@ export default {
             this.$router.push("/login");
         } else {
             this.fetchTokens();
-            this.fetchPriceData();
+            this.fetchChartData();
         }
     },
 
     mounted() {
-        // Register EventBus listeners
-        EventBus.on("dataUpdated", this.fetchPriceData);
-        this.fetchTokens();
-        this.fetchPriceData();
+        EventBus.on("dataUpdated", this.fetchChartData);
+        this.$nextTick(() => {
+            if (this.$refs.apexChart) {
+                this.$refs.apexChart.reflow();
+            }
+        });
+
+        // DEBUG
+        this.$refs.apexChart?.chart?.addEventListener("mounted", () => {
+            console.log("Chart mounted successfully.");
+        });
+        this.$refs.apexChart?.chart?.addEventListener("updated", () => {
+            console.log("Chart updated successfully.");
+        });
+        this.$refs.apexChart?.chart?.addEventListener("error", (e) => {
+            console.error("Chart error:", e);
+        });
+        // DEBUG END
     },
 
     beforeUnmount() {
-        // Unregister EventBus listeners
-        EventBus.off("updateCurrentPrices", this.updateCurrentPrices);
-        EventBus.off("refreshPortfolio", this.fetchPortfolioData);
-        EventBus.off("dataUpdated", this.fetchPortfolioChartData);
-
-        if (this.refreshInterval) {
-            clearInterval(this.refreshInterval); // Clear the interval on component unmount
-        }
+        EventBus.off("dataUpdated", this.fetchChartData);
     },
 };
 
@@ -380,10 +504,12 @@ select {
 
 .chart-render {
     width: 100%;
+    max-width: 100%;
+    height: 400px;
+    max-height: 400px;
     overflow: hidden;
 }
 
-/* Responsive Design */
 @media (max-width: 768px) {
 
     .chart-controls,

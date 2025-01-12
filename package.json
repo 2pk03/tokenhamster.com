@@ -60,6 +60,12 @@
     "frontend": "vue-cli-service serve",
     "start": "concurrently \"npm run backend\" \"npm run frontend\""
   },
+  "scripts": {
+    "clean": "rm -rf node_modules package-lock.json dist && npm cache clean --force",
+    "start": "concurrently \"node server.js\" \"vue-cli-service serve\"",
+    "build": "vue-cli-service build",
+    "test": "vue-cli-service test:unit"
+  },
   "eslintConfig": {
     "root": true,
     "env": {

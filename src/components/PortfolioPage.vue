@@ -22,7 +22,7 @@
 
       <div>
         <!-- Other content of ProfilePage -->
-        <MonthChart :selectedToken="selectedToken" @update:selectedToken="selectedToken = $event" />
+        <MonthChart :formatDateTime="formatDateTime" :selectedToken="selectedToken" @update:selectedToken="selectedToken = $event" />
       </div>
     </div>
 
