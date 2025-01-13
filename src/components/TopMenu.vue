@@ -212,7 +212,7 @@ export default {
         }
 
         alert("Token added successfully!");
-        EventBus.emit("updateCurrentPrices");
+        EventBus.emit("refreshPortfolio");
 
         // Reset form and close modal
         this.closeAddTokenModal();

@@ -152,16 +152,6 @@ function initializeDatabase() {
         // Enable foreign key constraints
         db.run(`PRAGMA foreign_keys = ON;`);
 
-        db.run(`
-            CREATE TABLE IF NOT EXISTS portfolios (
-                id INTEGER PRIMARY KEY AUTOINCREMENT, 
-                user_id INTEGER NOT NULL, 
-                name TEXT NOT NULL,  
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP, 
-                FOREIGN KEY (user_id) REFERENCES users(id) 
-            )
-        `);
-
         // Historical Data table with index for optimized querying
         db.run(`
             CREATE TABLE IF NOT EXISTS historical_data (
@@ -244,6 +234,28 @@ function initializeDatabase() {
                 coin_name TEXT NOT NULL
             )
         `);
+
+        // history table
+        db.run(`
+            CREATE TABLE IF NOT EXISTS user_crypto_history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                portfolio_id INTEGER NOT NULL,
+                crypto_symbol TEXT NOT NULL,
+                action TEXT NOT NULL, -- "Add" or "Sold"
+                amount REAL NOT NULL,
+                price REAL NOT NULL,
+                purchase_currency TEXT,
+                date DATETIME NOT NULL,
+                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        `, (err) => {
+            if (err) {
+                console.error('Error creating user_crypto_history table:', err.message);
+            } else {
+                console.log('user_crypto_history table created or already exists.');
+            }
+        });
 
         // SQLLite related code
         // Check if 'profilePicture' column exists in 'users' table
@@ -715,10 +727,10 @@ function updateAggregatedData(cryptoSymbol, callback) {
             AVG(price_usd) AS avg_price,
             SUM(volume) AS total_volume,
             AVG(market_cap) AS avg_market_cap
-        FROM historical_data
-        WHERE crypto_symbol = ?
-        GROUP BY crypto_symbol, day
-        ON CONFLICT (crypto_symbol, date) DO UPDATE SET
+            FROM historical_data
+            WHERE crypto_symbol = ?
+            GROUP BY crypto_symbol, day
+            ON CONFLICT (crypto_symbol, date) DO UPDATE SET
             avg_price = excluded.avg_price,
             total_volume = excluded.total_volume,
             market_cap = excluded.market_cap;
@@ -800,7 +812,6 @@ async function getAllActiveUserIds() {
         });
     });
 }
-
 
 async function calculateAndSavePortfolioValues(userId) {
     try {

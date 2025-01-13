@@ -22,7 +22,8 @@
 
       <div>
         <!-- Other content of ProfilePage -->
-        <MonthChart :formatDateTime="formatDateTime" :selectedToken="selectedToken" @update:selectedToken="selectedToken = $event" />
+        <MonthChart :formatDateTime="formatDateTime" :selectedToken="selectedToken"
+          @update:selectedToken="selectedToken = $event" />
       </div>
     </div>
 
@@ -50,6 +51,7 @@
           </span>
         </div>
       </div>
+
       <table class="portfolio-table">
         <thead>
           <tr>
@@ -61,10 +63,11 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-for="token in portfolio" :key="token.symbol">
+          <tr v-for="token in portfolio" :key="token.symbol" @mouseenter="fetchTokenHistory(token.symbol)"
+            @mouseleave="clearHistoryTooltip">
             <td>{{ token.symbol }}<br>
               [{{ formatCompactAmount(token.amountBought) }}]</td>
-            <td>{{ (token.purchasePrice) }} ({{ token.purchaseCurrency }})<br>
+            <td>{{ formatNumber(token.purchasePrice) }} ({{ token.purchaseCurrency }})<br>
               [{{ formatDateEU(token.purchaseDate) }}]</td>
             <td> <span
                 :class="(token.amountBought * (token.currentPriceConverted || token.currentPrice)) >= (token.amountBought * token.purchasePrice) ? 'win' : 'loss'">
@@ -77,11 +80,37 @@
                 }}%</span><br>
               [{{ formatFullPrice(token.currentPriceConverted || token.currentPrice) }}]</td>
             <td>
+              <button class="button-small" @click="confirmEdit(token)">Edit</button>
               <button class="button-small-imp" @click="confirmRemove(token)">Delete</button>
             </td>
           </tr>
         </tbody>
       </table>
+
+      <!-- Floating Tooltip -->
+      <div v-if="hoveredTokenHistory.length > 0" class="history-tooltip"
+        :style="{ top: tooltipPosition.y + 'px', left: tooltipPosition.x + 'px' }">
+        <div class="tooltip-title">{{ hoveredTokenSymbol }} History</div>
+        <table class="history-table">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Action</th>
+              <th>Amount</th>
+              <th>Price</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="history in hoveredTokenHistory" :key="history.timestamp + history.action">
+              <td>{{ formatDateTime(history.timestamp) }}</td>
+              <td>{{ history.action }}</td>
+              <td>{{ formatCompactAmount(history.amount) }}</td>
+              <td>{{ formatPrice(history.price) }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
     </div>
   </div>
 
@@ -91,6 +120,44 @@
       <p>Are you sure you want to remove {{ tokenToRemove.symbol }}?</p>
       <button class="button-imp" @click="removeToken(tokenToRemove.symbol)">Yes, Remove</button>
       <button class="button" @click="closeDialog">Cancel</button>
+    </div>
+  </div>
+
+  <!-- Edit modal -->
+  <div v-if="showEditTokenModal" class="modal">
+    <div class="modal-content">
+      <h3>{{ editAction === 'Add' ? 'Add Token Amount' : 'Sell Token Amount' }}</h3>
+      <form @submit.prevent="processTokenUpdate">
+        <!-- Action Selector -->
+        <label for="edit-action">Action:</label>
+        <select id="edit-action" v-model="editAction">
+          <option value="Add">Add</option>
+          <option value="Sold">Sell</option>
+        </select><br><br>
+
+        <!-- Amount -->
+        <label for="edit-amount">Amount:</label>
+        <input id="edit-amount" type="number" v-model="editTokenData.amount" required />
+
+        <!-- Price -->
+        <label for="edit-price">Price {{ editAction === 'Add' ? 'Bought' : 'Sold' }}:</label>
+        <input id="edit-price" type="number" v-model="editTokenData.price" required step="0.0000001" min="0"
+          :class="{ invalid: !isValidPrice(editTokenData.price) }" />
+
+        <!-- Currency Dropdown -->
+        <label for="edit-currency">Currency:</label>
+        <select id="edit-currency" v-model="editTokenData.purchaseCurrency" required>
+          <option value="USD">USD</option>
+          <option value="EUR">EUR</option>
+        </select><br><br>
+
+        <!-- Date -->
+        <label for="edit-date">Date:</label>
+        <input id="edit-date" type="date" v-model="editTokenData.date" :max="maxDate" required />
+
+        <button type="submit" class="button-small">{{ editAction }}</button>
+        <button type="button" class="button-small-imp" @click="closeEditTokenModal">Cancel</button>
+      </form>
     </div>
   </div>
 </template>
@@ -127,6 +194,20 @@ export default {
       portfolioChartData: [],
       PortfolioChartSeries: [],
       selectedToken: "BTC",
+      showEditTokenModal: false,
+      editAction: 'Add',
+      maxDate: new Date().toISOString().split("T")[0],
+      editTokenData: {
+        symbol: null,
+        amount: null,
+        price: null,
+        date: null,
+        purchaseCurrency: 'EUR',
+      },
+      hoveredTokenHistory: [],
+      hoveredTokenSymbol: '',
+      tooltipPosition: { x: 0, y: 0 },
+      token: [],
 
       // ApexChart options and series
       portfolioChartOptions: {
@@ -275,6 +356,68 @@ export default {
         this.pollingInterval = null;
       }
     },
+
+    /* Edit token block */
+    confirmEdit(token) {
+      this.editTokenData = {
+        symbol: token.symbol,
+        amount: null,
+        price: null,
+        date: null,
+        purchaseCurrency: token.purchaseCurrency || 'USD', // Default to USD if not defined
+      };
+      this.showEditTokenModal = true;
+      this.editAction = 'Add';
+    },
+
+    isValidPrice(value) {
+      const regex = /^[0-9]+(\.[0-9]{1,7})?$/; // Matches digits with up to 7 decimal places
+      return regex.test(value) || value === ""; // Allow empty value for user typing
+    },
+
+    // Close modal and reset data
+    closeEditTokenModal() {
+      this.showEditTokenModal = false;
+      this.editTokenData = { symbol: null, amount: null, price: null, date: null, purchaseCurrency: 'USD' };
+    },
+
+    // Process token update
+    async processTokenUpdate() {
+      if (!this.isValidPrice(this.editTokenData.price)) {
+        alert("Enter a valid price with up to 7 digits after the decimal.");
+        return;
+      }
+      if (!this.editTokenData.symbol || !this.editTokenData.amount || !this.editTokenData.price || !this.editTokenData.date || !this.editTokenData.purchaseCurrency) {
+        alert('Please fill in all fields.');
+        return;
+      }
+
+      const payload = {
+        symbol: this.editTokenData.symbol,
+        action: this.editAction,
+        amount: parseFloat(this.editTokenData.amount),
+        price: parseFloat(this.editTokenData.price),
+        date: this.editTokenData.date,
+        purchaseCurrency: this.editTokenData.purchaseCurrency,
+      };
+
+      try {
+        const response = await api.post('/user/portfolio/token/update', payload);
+
+        if (response.status === 200) {
+          alert(`${this.editAction} action completed successfully!`);
+          this.closeEditTokenModal();
+          this.fetchPortfolioData();
+        } else {
+          alert('Failed to update token.');
+        }
+      } catch (error) {
+        console.error('Error updating token:', error);
+        alert('Failed to update token. Please try again.');
+      }
+    },
+
+    /* Edit token block end*/
 
     async fetchPreferredCurrency() {
       try {
@@ -627,27 +770,48 @@ export default {
       }
     },
 
-    /* timezone stuff */
     formatDateTime(timestamp) {
-      const date = new Date(timestamp);
-
-      // Check if the selected currency is USD or EUR
+      if (!timestamp) return '--'; // Handle null or undefined timestamps
+      const date = new Date(
+        typeof timestamp === 'number' && timestamp < 1e12 ? timestamp * 1000 : timestamp
+      );
       if (this.selectedCurrency === "USD") {
-        // 12-hour format with timezone
         return date.toLocaleString("en-US", {
           dateStyle: "medium",
           timeStyle: "short",
-          timeZone: "America/New_York", // Adjust to US timezone
+          timeZone: "America/New_York",
         });
       } else {
-        // 24-hour format with timezone
         return date.toLocaleString("de-DE", {
           dateStyle: "medium",
           timeStyle: "short",
-          hour12: false, // 24-hour format
-          timeZone: "Europe/Berlin", // Adjust to EU timezone
+          hour12: false,
+          timeZone: "Europe/Berlin",
         });
       }
+    },
+
+    // history float
+    async fetchTokenHistory(symbol) {
+      try {
+        const response = await api.get('/user/portfolio/token/history', { params: { symbol } });
+        this.hoveredTokenHistory = response.data || [];
+      } catch (error) {
+        console.error(`Failed to fetch history for ${symbol}:`, error.message);
+        this.hoveredTokenHistory = [];
+      }
+    },
+    clearHistoryTooltip() {
+      this.hoveredTokenHistory = [];
+    },
+    updateTooltipPosition(event) {
+      this.tooltipPosition = { x: event.pageX + 10, y: event.pageY + 10 };
+    },
+    calculatePerformance(token) {
+      const currentValue = token.amountBought * (token.currentPrice || 0);
+      const invested = token.amountBought * token.purchasePrice;
+      const performance = ((currentValue - invested) / invested) * 100;
+      return `${performance.toFixed(2)}%`;
     },
   },
   /* method block end */
@@ -671,6 +835,7 @@ export default {
     EventBus.on("dataUpdated", this.fetchPortfolioChartData);
     this.initPortfolioData();
     this.fetchDailyWinLoss();
+    window.addEventListener('mousemove', this.updateTooltipPosition);
 
     // Set up the selected currency and fetch the initial total value
     this.fetchPreferredCurrency()
@@ -693,9 +858,10 @@ export default {
     EventBus.off("updateCurrentPrices", this.updateCurrentPrices);
     EventBus.off("refreshPortfolio", this.fetchPortfolioData);
     EventBus.off("dataUpdated", this.fetchPortfolioChartData);
+    window.removeEventListener('mousemove', this.updateTooltipPosition);
 
     if (this.refreshInterval) {
-      clearInterval(this.refreshInterval); // Clear the interval on component unmount
+      clearInterval(this.refreshInterval);
     }
   },
 };
@@ -755,5 +921,81 @@ select {
   .chart-render {
     height: auto;
   }
+}
+
+.button-small {
+  padding: 5px 10px;
+  font-size: 14px;
+}
+
+.button-small-imp {
+  padding: 5px 10px;
+  font-size: 14px;
+}
+
+.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.modal-content {
+  background: white;
+  padding: 20px;
+  border-radius: 5px;
+  max-width: 400px;
+  width: 100%;
+}
+
+input.invalid {
+  border: 1px solid red;
+  background-color: #ffe6e6;
+}
+
+.history-tooltip {
+  position: absolute;
+  background-color: #f9f9f9;
+  border: 1px solid #ccc;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  border-radius: 6px;
+  padding: 8px;
+  z-index: 1000;
+  width: 280px;
+  font-size: 12px;
+  color: #333;
+}
+
+.history-tooltip .history-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.history-tooltip .history-table th,
+.history-tooltip .history-table td {
+  padding: 4px;
+  text-align: left;
+  border: none;
+}
+
+.history-tooltip .history-table th {
+  background-color: transparent;
+  font-weight: bold;
+  color: #555;
+}
+
+.history-tooltip .history-table td {
+  color: #666;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.history-tooltip .history-table tr:not(:last-child) td {
+  border-bottom: 1px solid #eee;
 }
 </style>

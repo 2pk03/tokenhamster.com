@@ -49,9 +49,9 @@ function fetchPortfolioData(userId, portfolioId, callback) {
             uc.purchase_currency AS purchaseCurrency, 
             uc.purchase_date AS purchaseDate,
             uc.amount AS amountBought
-        FROM user_cryptos uc
-        LEFT JOIN supported_tokens st ON uc.crypto_symbol = st.symbol
-        WHERE uc.user_id = ? AND uc.portfolio_id = ?
+            FROM user_cryptos uc
+            LEFT JOIN supported_tokens st ON uc.crypto_symbol = st.symbol
+            WHERE uc.user_id = ? AND uc.portfolio_id = ?
     `;
     db.all(query, [userId, portfolioId], callback);
 }
@@ -202,46 +202,117 @@ function logPortfolioAudit(userId, portfolioId, action, details = {}, callback) 
     });
 }
 
-/* Create a new portfolio - later eventually
-router.post('/create', (req, res) => {
+// Update token in portfolio
+router.post('/token/update', (req, res) => {
     const userId = req.user.id;
-    const { name } = req.body;
+    const { symbol, action, amount, price, date, purchaseCurrency } = req.body;
 
-    if (!name) {
-        return res.status(400).json({ error: 'Portfolio name is required.' });
+    if (!symbol || !action || !amount || !price || !date || !purchaseCurrency) {
+        console.error('Missing required fields:', { symbol, action, amount, price, date, purchaseCurrency });
+        return res.status(400).json({ error: 'All fields are required.' });
+    }
+
+    getDefaultPortfolioId(userId, (err, portfolioId) => {
+        if (err || !portfolioId) {
+            console.error('Error retrieving portfolio ID:', err ? err.message : 'Not found');
+            return res.status(500).json({ error: 'Portfolio not found.' });
+        }
+
+        const historyQuery = `
+            INSERT INTO user_crypto_history (user_id, portfolio_id, crypto_symbol, action, amount, price, date, purchase_currency)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `;
+
+        db.run(
+            historyQuery,
+            [userId, portfolioId, symbol, action, amount, price, date, purchaseCurrency],
+            (historyErr) => {
+                if (historyErr) {
+                    console.error('Error logging history:', historyErr.message);
+                    return res.status(500).json({ error: 'Failed to log history.' });
+                }
+
+                const updateQuery =
+                    action === 'Add'
+                        ? `
+                            UPDATE user_cryptos
+                            SET amount = amount + ?, 
+                                purchase_price = (purchase_price * amount + ? * ?) / (amount + ?),
+                                purchase_currency = ?
+                            WHERE user_id = ? AND portfolio_id = ? AND crypto_symbol = ?
+                        `
+                        : `
+                            UPDATE user_cryptos
+                            SET amount = amount - ?
+                            WHERE user_id = ? AND portfolio_id = ? AND crypto_symbol = ? AND amount >= ?
+                        `;
+
+                const updateParams =
+                    action === 'Add'
+                        ? [amount, amount, price, amount, purchaseCurrency, userId, portfolioId, symbol]
+                        : [amount, userId, portfolioId, symbol, amount];
+
+                db.run(updateQuery, updateParams, (updateErr) => {
+                    if (updateErr) {
+                        console.error(`Error updating token for action "${action}":`, updateErr.message);
+                        return res.status(500).json({ error: `Failed to ${action === 'Add' ? 'add to' : 'sell from'} portfolio.` });
+                    }
+
+                    // Construct standardized audit details
+                    const auditDetails = {
+                        symbol,
+                        purchasePrice: price,
+                        purchaseCurrency,
+                        purchaseDate: date,
+                        amount,
+                    };
+
+                    // Determine the audit action type
+                    const auditAction = action === 'Add' ? 'BUY_TOKEN' : 'SELL_TOKEN';
+
+                    // Log the audit action
+                    logPortfolioAudit(
+                        userId,
+                        portfolioId,
+                        `${auditAction}`,
+                        auditDetails,
+                        (auditErr) => {
+                            if (auditErr) {
+                                console.warn('Failed to log audit action:', auditErr.message);
+                            }
+                        }
+                    );
+                    res.json({ message: `Token ${action === 'Add' ? 'added to' : 'sold from'} portfolio successfully.` });
+                });
+            }
+        );
+    });
+});
+
+router.get('/token/history', (req, res) => {
+    const userId = req.user.id;
+    const { symbol } = req.query;
+
+    if (!symbol) {
+        return res.status(400).json({ error: 'Token symbol is required.' });
     }
 
     const query = `
-        INSERT INTO portfolios (user_id, name)
-        VALUES (?, ?)
+      SELECT action, amount, price, timestamp
+      FROM user_crypto_history
+      WHERE user_id = ? AND crypto_symbol = ?
+      ORDER BY date DESC
     `;
 
-    db.run(query, [userId, name], function (err) {
+    db.all(query, [userId, symbol], (err, rows) => {
         if (err) {
-            console.error('Error creating portfolio:', err.message);
-            return res.status(500).json({ error: 'Failed to create portfolio.' });
+            console.error('Error fetching token history:', err.message);
+            return res.status(500).json({ error: 'Failed to fetch token history.' });
         }
 
-        const portfolioId = this.lastID;
-
-        // Log the audit action
-        logAuditAction(
-            userId,
-            portfolioId,
-            'ADD_PORTFOLIO',
-            null,
-            JSON.stringify({ name }),
-            (auditErr) => {
-                if (auditErr) {
-                    console.warn('Failed to log portfolio creation audit:', auditErr.message);
-                }
-            }
-        );
-
-        res.json({ message: 'Portfolio created successfully.', portfolioId });
+        res.json(rows);
     });
 });
-*/
 
 // Delete a portfolio
 router.post('/delete', (req, res) => {
@@ -471,7 +542,7 @@ router.get('/export', (req, res) => {
             console.error('Error retrieving default portfolio ID:', err ? err.message : 'Not found');
             return res.status(500).json({ error: 'Default portfolio not found.' });
         }
- 
+
         // console.log(`Exporting portfolio for user ID: ${userId}, portfolio ID: ${portfolioId}`); // DEBUG
         fetchPortfolioForExport(userId, portfolioId, (fetchErr, rows) => {
             if (fetchErr) {

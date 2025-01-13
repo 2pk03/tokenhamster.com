@@ -340,6 +340,26 @@ export default {
               `Amount: ${formattedDetails.amount || 'N/A'}`,
             ],
           };
+        case 'SELL_TOKEN':
+          return {
+            description: `Token Sold:`,
+            list: [
+              `Symbol: ${formattedDetails.symbol || 'N/A'}`,
+              `Price: ${formattedDetails.purchasePrice || 'N/A'} ${formattedDetails.purchaseCurrency || 'N/A'}`,
+              `Date: ${formattedDetails.purchaseDate || 'N/A'}`,
+              `Amount: ${formattedDetails.amount || 'N/A'}`,
+            ],
+          };
+          case 'BUY_TOKEN':
+          return {
+            description: `Token Bought:`,
+            list: [
+              `Symbol: ${formattedDetails.symbol || 'N/A'}`,
+              `Price: ${formattedDetails.purchasePrice || 'N/A'} ${formattedDetails.purchaseCurrency || 'N/A'}`,
+              `Date: ${formattedDetails.purchaseDate || 'N/A'}`,
+              `Amount: ${formattedDetails.amount || 'N/A'}`,
+            ],
+          };
         case 'OTP_VALIDATION_SUCCESS':
         case 'OTP_VALIDATION_FAILED':
           return {
