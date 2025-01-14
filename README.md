@@ -4,6 +4,25 @@
 
 ---
 
+## Get started
+Runs fine on a laptop, I have a VM at Hetzner, 2 CPU, 8 GB RAM. Stack is built with SQLite, so an ``apt-get install sqlite`` will do it. You need an API from https://www.cryptocompare.com, the free tier should be enough to start with. Add the key to an .env file in the root directory. Example .env:
+
+```.env
+BACKEND_URL=YOUR URL:PORT #(typically loalhost:3000)
+VUE_APP_EVENT_BASE_UR=YOUR URL:PORT #(typically loalhost:3000)
+API_KEY_CRYPTOCOMPARE=YOUR-API-KEY
+VUE_APP_GOOGLE_CLIENT_ID=YOUR-GOOGLE-OAUTH-KEY # => cloud.google.com, Oauth Dialog
+VUE_APP_GOOGLE_CLIENT_SECRET=GOOGLE-OAUTH-CLIENT-SECRET
+DEV=(1|0) #for pollingservice time intervall
+```
+### Start tokenhamster
+It's the typical node.js routine:
+```yarn install & npm start serve```
+
+Login with your google account. 
+
+---
+
 ## API Endpoints
 
 ### Authentication
