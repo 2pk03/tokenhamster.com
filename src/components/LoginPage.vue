@@ -5,7 +5,7 @@
       <div class="center-text">
         <h1 class="main-title">The TokenHamster</h1>
         <p class="subtitle">Track your crypto offline securely and easily</p>
-        <strong>beta v. 0.87 / build 109d6e5</strong>
+        <strong>v. 1.08 / build acb4733</strong>
       </div>
 
       <!-- Google Login Button -->
@@ -38,6 +38,12 @@
       </div>
     </div>
   </div>
+  <footer>
+    <p>
+      Learn more about TokenHamster: 
+      <a href="https://github.com/2pk03/tokenhamster.com/blob/main/README.md" target="_blank">Documentation</a>
+    </p>
+  </footer>
 </template>
 <script>
 import api from "@/api";
@@ -345,5 +351,18 @@ body {
   align-items: center;
   padding: 20px;
   z-index: 1;
+}
+footer {
+  margin-top: 20px;
+  text-align: center;
+}
+
+footer a {
+  color: #007BFF;
+  text-decoration: none;
+}
+
+footer a:hover {
+  text-decoration: underline;
 }
 </style>
