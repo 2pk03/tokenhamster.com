@@ -15,7 +15,7 @@
 
         <!-- Portfolio Value Chart -->
         <div class="chart-container">
-          <apexchart type="area" :options="updatedChartOptions" :series="portfolioChartSeries" height="200"></apexchart>
+          <apexchart type="area" :options="updatedChartOptions" :series="portfolioChartSeries" height="250"></apexchart>
         </div>
       </div>
 
