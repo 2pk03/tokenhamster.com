@@ -33,6 +33,27 @@ axios.interceptors.request.use(
     }
 ); */
 
+async function fetchTop10Cryptos() {
+    try {
+        const response = await axios.get(`${CRYPTOCOMPARE_BASE_URL}/top/mktcapfull`, {
+            params: { limit: 10, tsym: 'USD', api_key: API_KEY_CRYPTOCOMPARE },
+        });
+
+        if (response.data && response.data.Data) {
+            return response.data.Data.map(crypto => ({
+                symbol: crypto.CoinInfo.Name,
+                marketCap: crypto.RAW.USD.MKTCAP, // Always include market cap
+            }));
+        }
+
+        console.warn('fetchTop10Cryptos: Empty or invalid API response.');
+        return [];
+    } catch (err) {
+        console.error('Error fetching top 10 cryptos:', err.message);
+        return [];
+    }
+}
+
 // Fetch crypto price data
 async function fetchCryptoPrices(fsyms, tsyms) {
     try {
@@ -46,6 +67,64 @@ async function fetchCryptoPrices(fsyms, tsyms) {
         return null;
     }
 }
+
+// Get the last poll timestamp for market_cap
+function getLastMarketCapPoll() {
+    return new Promise((resolve, reject) => {
+        const query = `SELECT last_polled FROM market_poll_status ORDER BY id DESC LIMIT 1`;
+        db.get(query, [], (err, row) => {
+            if (err) {
+                reject(err);
+            } else {
+                resolve(row ? new Date(row.last_polled) : null);
+            }
+        });
+    });
+}
+
+// Update the last poll timestamp for market_cap
+function updateLastMarketCapPoll() {
+    return new Promise((resolve, reject) => {
+        const now = new Date().toISOString();
+        const query = `INSERT INTO market_poll_status (last_polled) VALUES (?)`;
+        db.run(query, [now], (err) => {
+            if (err) {
+                reject(err);
+            } else {
+                resolve();
+            }
+        });
+    });
+}
+
+function saveMarketCapData({ crypto_symbol, market_cap_usd, dominance_percentage, timestamp }) {
+    const query = `
+        INSERT INTO market_dominance (crypto_symbol, date_time, market_cap_usd, dominance_percentage)
+        VALUES (?, ?, ?, ?)
+        ON CONFLICT (crypto_symbol, date_time) DO UPDATE SET
+        market_cap_usd = excluded.market_cap_usd,
+        dominance_percentage = excluded.dominance_percentage;
+    `;
+
+    db.run(query, [crypto_symbol, timestamp, market_cap_usd, dominance_percentage], (err) => {
+        if (err) {
+            console.error(`Error saving market cap for ${crypto_symbol}:`, err.message);
+        } else {
+            console.log(`Market cap saved for ${crypto_symbol}: ${market_cap_usd}`);
+        }
+    });
+}
+
+async function fetchGlobalMarketCap() {
+    try {
+        const response = await axios.get('https://api.coingecko.com/api/v3/global');
+        return response.data.data.total_market_cap.usd || 0;
+    } catch (err) {
+        console.error('Error fetching global market cap:', err.message);
+        return 0;
+    }
+}
+
 
 // Save polled data into the database
 function savePolledData({ crypto_symbol, timestamp, prices }) {
@@ -70,7 +149,8 @@ function savePolledData({ crypto_symbol, timestamp, prices }) {
     const volume_to = parseFloat(usdData.VOLUMEHOURTO?.toFixed(10)) || null;
     const market_cap = parseFloat(usdData.MKTCAP?.toFixed(2)) || null;
 
-    /* 
+    
+    /*
     // Debug log for verification
     console.log({
         crypto_symbol,
@@ -178,37 +258,49 @@ const getTrackedSymbolsAndCurrencies = () => {
 
 async function pollPricesForActiveTokens() {
     try {
+        // Step 1: Fetch currently tracked tokens
         const activeTokens = await getTrackedSymbolsAndCurrencies();
-        if (!activeTokens.length) {
+        const activeSymbols = activeTokens.map(s => s.toUpperCase());
+
+        // console.log('Active tokens from database:', activeSymbols); // DEBUG
+
+        // Step 2: Fetch top 10 cryptos by market cap
+        const top10Cryptos = await fetchTop10Cryptos();
+        const top10Symbols = top10Cryptos.map(({ symbol }) => symbol.toUpperCase());
+
+        // console.log('Top 10 cryptos fetched from API:', top10Symbols); // DEBUG
+
+        // Step 3: Merge and deduplicate
+        const allSymbols = [...new Set([...activeSymbols, ...top10Symbols])];
+
+        // console.log('Final merged list of tokens for polling:', allSymbols); // DEBUG
+
+        if (!allSymbols.length) {
             console.warn('No active tokens found for polling.');
             return;
         }
 
+        // Step 4: Poll in batches
         const batchSize = 100;
-        const totalBatches = Math.ceil(activeTokens.length / batchSize);
+        const totalBatches = Math.ceil(allSymbols.length / batchSize);
 
         for (let batchIndex = 0; batchIndex < totalBatches; batchIndex++) {
-            const batchStart = batchIndex * batchSize;
-            const batchEnd = batchStart + batchSize;
-            const batch = activeTokens.slice(batchStart, batchEnd);
+            const batch = allSymbols.slice(batchIndex * batchSize, (batchIndex + 1) * batchSize);
+
+            // console.log(`Polling batch ${batchIndex + 1}/${totalBatches}:`, batch); // DEBUG
 
             const fsyms = batch.join(',');
             const tsyms = 'EUR,USD,BTC';
 
             const response = await fetchCryptoPrices(fsyms, tsyms);
             if (response) {
-                // console.log('Fetched prices for batch:', batch); // DEBUG
-
-                // Save individual token data
                 Object.entries(response).forEach(([symbol, prices]) => {
-                    if (prices && typeof prices === 'object' && 'EUR' in prices && 'USD' in prices && 'BTC' in prices) {
+                    if (prices && prices.USD) {
                         savePolledData({
                             crypto_symbol: symbol,
                             timestamp: new Date().toISOString(),
                             prices,
                         });
-                    } else {
-                        console.warn(`Incomplete data for ${symbol}. Skipping.`);
                     }
                 });
             } else {
@@ -227,7 +319,7 @@ async function addTokenToPolling(cryptoSymbol, currency) {
         return; // Skip if already polling
     }
 
-    console.log(`Adding ${cryptoSymbol} (${currency}) to polling.`);
+    // console.log(`Adding ${cryptoSymbol} (${currency}) to polling.`); // DEBUG
 
     pollingIntervals[pollingKey] = setInterval(async () => {
         const data = await fetchCryptoPrices(cryptoSymbol, currency);
@@ -242,7 +334,7 @@ async function addTokenToPolling(cryptoSymbol, currency) {
         }
     }, DEFAULT_POLLING_INTERVAL);
 
-    console.log(`Polling interval set for ${cryptoSymbol} (${currency}) to ${DEFAULT_POLLING_INTERVAL / 1000}s.`);
+    // console.log(`Polling interval set for ${cryptoSymbol} (${currency}) to ${DEFAULT_POLLING_INTERVAL / 1000}s.`); // DEBUG
 }
 
 async function fetchAndSaveHistoricalData(cryptoSymbol) {
@@ -334,50 +426,71 @@ async function fetchAndSaveHistoricalData(cryptoSymbol) {
 
 const refreshPolling = async () => {
     try {
-        const trackedPairs = await getTrackedSymbolsAndCurrencies();
+        // Step 1: Check if market cap polling is needed
+        const lastPollDate = await getLastMarketCapPoll();
+        const today = new Date().toISOString().split('T')[0];
 
-        if (trackedPairs.length === 0) {
-            console.warn('No cryptos found to poll. Adding placeholder BTC/USD.');
-            if (!pollingIntervals['BTC-USD']) {
-                addTokenToPolling('BTC', 'USD'); // placeholder to start for fresh installs
+        if (lastPollDate && lastPollDate.toISOString().split('T')[0] === today) {
+            // console.log('Market cap already polled today. Skipping.'); // DEBUG
+        } else {
+            // console.log('Polling market cap data...'); // DEBUG
+            
+            // Step 2: Fetch global market cap
+            const globalMarketCap = await fetchGlobalMarketCap();
+            if (!globalMarketCap || globalMarketCap <= 0) {
+                console.error('Unable to fetch global market cap. Skipping dominance calculation.');
+            } else {
+                // console.log('Global market cap (USD):', globalMarketCap); // DEBUG
+
+                // Step 3: Fetch the top 10 cryptocurrencies
+                const top10Cryptos = await fetchTop10Cryptos();
+                const timestamp = new Date().toISOString();
+
+                // Save market cap and dominance percentage for top 10 cryptos
+                top10Cryptos.forEach(({ symbol, marketCap }) => {
+                    const dominancePercentage = (marketCap / globalMarketCap) * 100;
+
+                    saveMarketCapData({
+                        crypto_symbol: symbol,
+                        market_cap_usd: marketCap,
+                        dominance_percentage: dominancePercentage,
+                        timestamp,
+                    });
+                });
+
+                // Update the last poll timestamp
+                await updateLastMarketCapPoll();
             }
-            return;
         }
 
-        // always track BTC
-        const uniqueSymbols = [...new Set(trackedPairs.map(({ crypto_symbol }) => crypto_symbol))];
-        if (!uniqueSymbols.includes('BTC')) {
-            uniqueSymbols.push('BTC');
-        }
-        // batch polling grouping
-        const batches = [];
-        for (let i = 0; i < uniqueSymbols.length; i += 100) {
-            batches.push(uniqueSymbols.slice(i, i + 100));
-        }
+        // Proceed with regular polling for tracked tokens
+        const trackedPairs = await getTrackedSymbolsAndCurrencies();
+        const trackedSymbols = trackedPairs.map(({ crypto_symbol }) => crypto_symbol.toUpperCase());
 
-        // Fetch prices for each batch
-        for (const batch of batches) {
+        // console.log('Tracked tokens from database:', trackedSymbols); // DEBUG
+
+        const batchSize = 100;
+        const totalBatches = Math.ceil(trackedSymbols.length / batchSize);
+
+        for (let batchIndex = 0; batchIndex < totalBatches; batchIndex++) {
+            const batch = trackedSymbols.slice(batchIndex * batchSize, (batchIndex + 1) * batchSize);
+            // console.log(`Polling batch ${batchIndex + 1}/${totalBatches}:`, batch); // DEBUG
+
             const fsyms = batch.join(',');
             const tsyms = 'EUR,USD,BTC';
 
             const response = await fetchCryptoPrices(fsyms, tsyms);
             if (response) {
                 Object.entries(response).forEach(([symbol, prices]) => {
-                    if (prices.EUR && prices.USD && prices.BTC) {
+                    if (prices && prices.USD) {
                         savePolledData({
                             crypto_symbol: symbol,
                             timestamp: new Date().toISOString(),
-                            prices: {
-                                EUR: prices.EUR,
-                                USD: prices.USD,
-                                BTC: prices.BTC,
-                            },
+                            prices,
                         });
-                    } else {
-                        console.warn(`Incomplete data for ${symbol}. Skipping.`);
                     }
                 });
-                broadcast("dataUpdated"); // Push event to bus
+                broadcast('dataUpdated');
             } else {
                 console.error(`Failed to fetch prices for batch: ${fsyms}`);
             }
@@ -386,7 +499,6 @@ const refreshPolling = async () => {
         console.error('Error refreshing polling tokens:', err.message);
     }
 };
-
 
 // Start polling for all active cryptos and currencies
 function startPolling() {
@@ -399,7 +511,7 @@ function startPolling() {
 }
 
 function startPortfolioCalculation() {
-    console.log('Starting portfolio value calculation service...');
+    // console.log('Starting portfolio value calculation service...'); // DEBUG
 
     const refreshPortfolioValues = async () => {
         try {

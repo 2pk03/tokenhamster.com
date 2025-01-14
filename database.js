@@ -225,6 +225,25 @@ function initializeDatabase() {
             )
         `);
 
+        // market dominance
+        db.run(`
+                CREATE TABLE IF NOT EXISTS market_dominance (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                crypto_symbol TEXT NOT NULL,
+                date_time DATETIME NOT NULL,
+                dominance_percentage REAL NOT NULL,
+                market_cap_usd REAL,
+                UNIQUE (crypto_symbol, date_time)
+            )
+        `);
+        // market dom poll tracker    
+        db.run(`
+            CREATE TABLE IF NOT EXISTS market_poll_status (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            last_polled DATETIME NOT NULL
+            )
+        `);
+
         // Store supported tokens we query from the API
         db.run(`
             CREATE TABLE IF NOT EXISTS supported_tokens (
