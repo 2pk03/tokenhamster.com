@@ -224,7 +224,6 @@ router.post('/recover-2fa', authenticateToken, async (req, res) => {
                         return res.status(500).json({ error: 'Failed to recover 2FA.' });
                     }
 
-                    console.log(`2FA disabled for user ID ${user.id}`);
                     res.json({ message: '2FA has been disabled. You can log in without OTP.' });
                 });
             } catch (decryptionError) {

@@ -144,7 +144,7 @@ function initializeDatabase() {
                 ON user_cryptos (portfolio_id, user_id);
        `);
 
-       db.run(`
+        db.run(`
                 CREATE INDEX IF NOT EXISTS idx_portfolio_values_last_updated 
                 ON portfolio_values (portfolio_id, last_updated);
         `);
@@ -252,8 +252,6 @@ function initializeDatabase() {
         `, (err) => {
             if (err) {
                 console.error('Error creating user_crypto_history table:', err.message);
-            } else {
-                console.log('user_crypto_history table created or already exists.');
             }
         });
 
@@ -265,7 +263,6 @@ function initializeDatabase() {
                 if (err) {
                     console.error('Error checking users table schema:', err.message);
                 } else if (!rows.some(col => col.name === 'profilePicture')) {
-                    console.log('Adding profilePicture column to users table...');
                     db.run(
                         `ALTER TABLE users ADD COLUMN profilePicture TEXT DEFAULT NULL`,
                         (alterErr) => {
@@ -276,8 +273,6 @@ function initializeDatabase() {
                             }
                         }
                     );
-                } else {
-                    console.log('profilePicture column already exists in users table.');
                 }
             }
         );
@@ -641,7 +636,7 @@ function setTemporaryTwoFactorData(userId, secret, recoveryPhrase, callback) {
             console.error('Error storing temporary 2FA data:', err.message);
             return callback(err);
         }
-        console.log(`Temporary 2FA data set for user ID: ${userId}`); //DEBUG
+        // console.log(`Temporary 2FA data set for user ID: ${userId}`); //DEBUG
         callback(null);
     });
 }
@@ -684,7 +679,7 @@ function setTwoFactorSecretAndSeed(userId, secret, recoveryPhrase, callback) {
                 return callback(tempErr);
             }
 
-            console.log(`2FA activated and temporary data deleted for user ID: ${userId}`);
+            // console.log(`2FA activated and temporary data deleted for user ID: ${userId}`); // DEBUG
             callback(null);
         });
     });
@@ -698,7 +693,7 @@ function deleteTemporaryTwoFactorData(userId, callback) {
             console.error(`Error deleting temporary 2FA data for user ID ${userId}:`, err.message);
             return callback(err);
         }
-        console.log(`Temporary 2FA data deleted for user ID: ${userId}`);
+        // console.log(`Temporary 2FA data deleted for user ID: ${userId}`); // DEBUG
         callback(null);
     });
 }
@@ -738,8 +733,6 @@ function updateAggregatedData(cryptoSymbol, callback) {
     db.run(query, [cryptoSymbol], (err) => {
         if (err) {
             console.error(`Error updating aggregated data for ${cryptoSymbol}:`, err.message);
-        } else {
-            console.log(`Aggregated data updated for ${cryptoSymbol}`);
         }
         if (callback) callback(err);
     });
@@ -755,8 +748,6 @@ db.all(`PRAGMA table_info(current_prices);`, (err, rows) => {
         db.run(`ALTER TABLE current_prices ADD COLUMN price_btc REAL;`, (alterErr) => {
             if (alterErr) {
                 console.error('Error adding price_btc column to current_prices:', alterErr.message);
-            } else {
-                console.log('price_btc column added to current_prices table.');
             }
         });
     }
@@ -770,9 +761,7 @@ db.all(`PRAGMA table_info(historical_data);`, (err, rows) => {
         db.run(`ALTER TABLE historical_data ADD COLUMN price_btc REAL;`, (alterErr) => {
             if (alterErr) {
                 console.error('Error adding price_btc column to historical_data:', alterErr.message);
-            } else {
-                console.log('price_btc column added to historical_data table.');
-            }
+            } 
         });
     }
 });
@@ -785,8 +774,6 @@ db.all(`PRAGMA table_info(historical_data);`, (err, rows) => {
         db.run(`ALTER TABLE historical_data ADD COLUMN price_eur REAL;`, (alterErr) => {
             if (alterErr) {
                 console.error('Error adding price_eur column to historical_data:', alterErr.message);
-            } else {
-                console.log('price_eur column added to historical_data table.');
             }
         });
     }

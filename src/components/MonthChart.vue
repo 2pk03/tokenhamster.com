@@ -349,32 +349,26 @@ export default {
 
         formatVolume(value) {
             if (value >= 1e9) {
-                return `${(value / 1e9).toFixed(2)}B`; 
+                return `${(value / 1e9).toFixed(2)}B`;
             } else if (value >= 1e6) {
-                return `${(value / 1e6).toFixed(2)}M`; 
+                return `${(value / 1e6).toFixed(2)}M`;
             } else if (value >= 1e3) {
-                return `${(value / 1e3).toFixed(1)}K`; 
+                return `${(value / 1e3).toFixed(1)}K`;
             }
-            return value.toLocaleString(); 
+            return value.toLocaleString();
         },
 
         updateCandlestickChart(data) {
-            console.log("API Response for Candlestick Chart:", data); // Log API data
-
             const transformedData = data
                 .filter((d) => d.open && d.high && d.low && d.close) // Filter invalid data
                 .map((d) => ({
                     x: new Date(d.period).getTime(),
                     y: [d.open, d.high, d.low, d.close],
                 }));
-
-            console.log("Transformed Candlestick Data:", transformedData); // Log transformed data
-
             try {
                 if (!transformedData.length) {
                     throw new Error("No valid data for candlestick chart.");
                 }
-
                 this.chartSeries = [
                     {
                         name: "Candlestick",
@@ -382,7 +376,6 @@ export default {
                         data: transformedData,
                     },
                 ];
-
                 this.chartOptions = {
                     ...this.chartOptions,
                     chart: {
@@ -470,18 +463,6 @@ export default {
                 this.$refs.apexChart.reflow();
             }
         });
-
-        // DEBUG
-        this.$refs.apexChart?.chart?.addEventListener("mounted", () => {
-            console.log("Chart mounted successfully.");
-        });
-        this.$refs.apexChart?.chart?.addEventListener("updated", () => {
-            console.log("Chart updated successfully.");
-        });
-        this.$refs.apexChart?.chart?.addEventListener("error", (e) => {
-            console.error("Chart error:", e);
-        });
-        // DEBUG END
     },
 
     beforeUnmount() {

@@ -9,7 +9,7 @@ const loadStrategies = () => {
   const strategiesPath = __dirname;
   fs.readdirSync(strategiesPath).forEach((file) => {
     if (file !== 'index.js' && file.endsWith('.js')) {
-      console.log(`Loading OAuth strategy: ${file}`);
+      // console.log(`Loading OAuth strategy: ${file}`); // DEBUG
       require(path.join(strategiesPath, file)); // Each file must configure passport
     }
   });

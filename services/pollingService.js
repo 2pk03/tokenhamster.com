@@ -103,8 +103,6 @@ function savePolledData({ crypto_symbol, timestamp, prices }) {
         (err) => {
             if (err) {
                 console.error(`Error saving to current_prices for ${crypto_symbol}:`, err.message);
-            } else {
-                console.log(`Saved current prices for ${crypto_symbol}.`);
             }
         }
     );

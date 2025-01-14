@@ -575,8 +575,6 @@ router.get('/export', (req, res) => {
                 (auditErr) => {
                     if (auditErr) {
                         console.warn('Failed to log portfolio export audit:', auditErr.message);
-                    } else {
-                        console.log(`Portfolio export logged successfully for user ID: ${userId}`);
                     }
                 }
             );
