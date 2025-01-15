@@ -232,29 +232,50 @@ function savePolledData({ crypto_symbol, timestamp, prices }) {
 
 
 // Fetch symbols and currencies from the database
-const getTrackedSymbolsAndCurrencies = () => {
-    return new Promise((resolve, reject) => {
-        const query = `
+async function getTrackedSymbolsAndCurrencies() {
+    try {
+        // Fetch the currently tracked tokens and their currencies
+        const trackedQuery = `
             SELECT DISTINCT uc.crypto_symbol, uc.purchase_currency
             FROM user_cryptos uc
             INNER JOIN portfolios p ON uc.portfolio_id = p.id
             WHERE p.user_id = uc.user_id AND p.deleted = 0
         `;
+        const trackedTokens = await new Promise((resolve, reject) => {
+            db.all(trackedQuery, (err, rows) => {
+                if (err) return reject(err);
+                resolve(rows || []);
+            });
+        });
 
-        db.all(query, [], (err, rows) => {
-            if (err) {
-                reject(err);
-            } else {
-                resolve(
-                    rows.map(row => ({
-                        crypto_symbol: row.crypto_symbol,
-                        currency: row.purchase_currency,
-                    }))
-                );
+        // Fetch the top 10 tokens by market cap
+        const top10Query = `
+            SELECT DISTINCT crypto_symbol, 'USD' AS currency
+            FROM market_dominance
+        `;
+        const top10Tokens = await new Promise((resolve, reject) => {
+            db.all(top10Query, (err, rows) => {
+                if (err) return reject(err);
+                resolve(rows || []);
+            });
+        });
+
+        // Merge tracked tokens and top 10 tokens, avoiding duplicates
+        const mergedTokens = [...trackedTokens];
+
+        top10Tokens.forEach((topToken) => {
+            if (!mergedTokens.find((t) => t.crypto_symbol === topToken.crypto_symbol)) {
+                mergedTokens.push(topToken);
             }
         });
-    });
-};
+
+        return mergedTokens;
+    } catch (err) {
+        console.error('Error fetching tracked symbols and currencies:', err.message);
+        return [];
+    }
+}
+
 
 async function pollPricesForActiveTokens() {
     try {
