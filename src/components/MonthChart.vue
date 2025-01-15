@@ -272,7 +272,7 @@ export default {
                     },
                     {
                         name: "Volume",
-                        type: "bar",
+                        type: "line",
                         data: volumeData,
                     },
                 ];
@@ -286,17 +286,11 @@ export default {
                         width: "100%",
                         animations: { enabled: false },
                     },
-                    colors: ["#00008b", "#ff8c00"], // Blue for Price, Orange for Volume
+                    colors: ["#001440", "#05C3DD"], // Blue for Price, Orange for Volume
                     stroke: {
-                        curve: "straight",
+                        curve: "smooth",
                         width: 2,
-                    },
-                    plotOptions: {
-                        bar: {
-                            horizontal: false,
-                            columnWidth: "55%",
-                        },
-                    },
+                    },                    
                     tooltip: {
                         shared: true,
                         x: {

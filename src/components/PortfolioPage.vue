@@ -219,7 +219,7 @@ export default {
         stroke: {
           curve: "straight",
           width: 2,
-          colors: ["#ff8c00"],
+          colors: ["#456FED"],
         },
         fill: {
           type: 'gradient',
@@ -230,12 +230,12 @@ export default {
             colorStops: [
               {
                 offset: 0,
-                color: "#ff8c00",
+                color: "#456FED",
                 opacity: 0.7,
               },
               {
                 offset: 100,
-                color: "#ffa500",
+                color: "#05C3DD",
                 opacity: 0.3,
               },
             ],
