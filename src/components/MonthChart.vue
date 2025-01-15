@@ -288,7 +288,7 @@ export default {
                     },
                     colors: ["#001440", "#05C3DD"], // Blue for Price, Orange for Volume
                     stroke: {
-                        curve: "smooth",
+                        curve: "straight",
                         width: 2,
                     },                    
                     tooltip: {
