@@ -286,11 +286,11 @@ export default {
                         width: "100%",
                         animations: { enabled: false },
                     },
-                    colors: ["#001440", "#05C3DD"], // Blue for Price, Orange for Volume
+                    colors: ["#001440", "#cccccc"],
                     stroke: {
-                        curve: "straight",
-                        width: 2,
-                    },                    
+                        width: [2, 2], // Ensure both lines have a width of 2
+                        curve: ["straight", "stepline"], // Apply stepline only to the volume series
+                    },
                     tooltip: {
                         shared: true,
                         x: {
@@ -299,10 +299,8 @@ export default {
                         y: {
                             formatter: (value, { seriesIndex }) => {
                                 if (seriesIndex === 1) {
-                                    // Format Volume
                                     return `${this.formatVolume(value)} Vol`;
                                 }
-                                // Format Price
                                 return `$${this.formatNumberMonthly(value)}`;
                             },
                         },
@@ -318,7 +316,7 @@ export default {
                                 0
                             ),
                             max: Math.max(...priceData.map((p) => p.y)) * 1.1,
-                            forceNiceScale: true, // Ensure consistent scaling
+                            forceNiceScale: true, // Consistent scaling
                         },
                         {
                             opposite: true,
@@ -330,7 +328,6 @@ export default {
                     ],
                 };
 
-                // Ensure the chart is properly re-rendered
                 this.$nextTick(() => {
                     if (this.$refs.apexChart) {
                         this.$refs.apexChart.reflow();
