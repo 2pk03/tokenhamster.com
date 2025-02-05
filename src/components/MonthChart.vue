@@ -272,7 +272,7 @@ export default {
                     },
                     {
                         name: "Volume",
-                        type: "line",
+                        type: "bar", // Convert to bar chart
                         data: volumeData,
                     },
                 ];
@@ -281,20 +281,29 @@ export default {
                     ...this.chartOptions,
                     chart: {
                         ...this.chartOptions.chart,
-                        type: "line",
+                        type: "line", // Keep main chart type as line
                         height: 400,
                         width: "100%",
                         animations: { enabled: false },
                     },
-                    colors: ["#001440", "#cccccc"],
+                    colors: ["#001440", "#cccccc"], // Line & bar colors
                     stroke: {
-                        width: [2, 2], // Ensure both lines have a width of 2
-                        curve: ["straight", "stepline"], // Apply stepline only to the volume series
+                        width: [2, 0], // Ensure bars don’t have strokes
+                        curve: "straight",
+                    },
+                    plotOptions: {
+                        bar: {
+                            columnWidth: "10%", 
+                            borderRadius: 0, 
+                            borderWidth: 1, 
+                            borderColor: "#000000", 
+                            dataLabels: { position: "top" },
+                        },
                     },
                     tooltip: {
                         shared: true,
                         x: {
-                            formatter: (value) => this.formatDateTime(value), // Use the prop for formatting
+                            formatter: (value) => this.formatDateTime(value),
                         },
                         y: {
                             formatter: (value, { seriesIndex }) => {
@@ -324,6 +333,7 @@ export default {
                             labels: {
                                 formatter: (value) => this.formatVolume(value),
                             },
+                            min: 0,
                         },
                     ],
                 };
