@@ -293,7 +293,7 @@ export default {
                     },
                     plotOptions: {
                         bar: {
-                            columnWidth: "10%", 
+                            columnWidth: "100%", 
                             borderRadius: 0, 
                             borderWidth: 1, 
                             borderColor: "#000000", 
