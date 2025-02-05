@@ -286,9 +286,9 @@ export default {
                         width: "100%",
                         animations: { enabled: false },
                     },
-                    colors: ["#001440", "#cccccc"], // Line & bar colors
+                    colors: ["#001440", "#cccccc"], 
                     stroke: {
-                        width: [2, 0], // Ensure bars don’t have strokes
+                        width: 2, 
                         curve: "straight",
                     },
                     plotOptions: {
