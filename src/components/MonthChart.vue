@@ -20,15 +20,15 @@
                         style="display: inline-flex; align-items: center; margin-left: 40px;">
                         <label style="margin-right: 10px;">
                             <input type="radio" value="24h" v-model="selectedTimeWindow" @change="fetchChartData" />
-                            15min
+                            24h
                         </label>
                         <label style="margin-right: 10px;">
                             <input type="radio" value="week" v-model="selectedTimeWindow" @change="fetchChartData" />
-                            4h
+                            Week 
                         </label>
                         <label>
                             <input type="radio" value="month" v-model="selectedTimeWindow" @change="fetchChartData" />
-                            Daily
+                            Month
                         </label>
                     </div>
                 </div>
